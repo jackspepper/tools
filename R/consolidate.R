@@ -102,7 +102,7 @@ build_decision_summary <- function(audit_dir) {
   dec_files <- list.files(audit_dir, pattern = "pcr_decisions.*\\.csv$",
                           full.names = TRUE)
   if (length(dec_files) == 0) {
-    report("!", "No decision log found in AUDIT_DIR — decision breakdown omitted from run_summary")
+    report("!", "No decision log found in AUDIT_DIR - decision breakdown omitted from run_summary")
     return(NULL)
   }
   # If multiple files exist, use the most recently modified
@@ -151,7 +151,7 @@ build_standards_summary <- function(audit_dir) {
   std_files <- list.files(audit_dir, pattern = "pcr_standards.*\\.csv$",
                           full.names = TRUE)
   if (length(std_files) == 0) {
-    report("!", "No standards log found in AUDIT_DIR — standards summary omitted from run_summary")
+    report("!", "No standards log found in AUDIT_DIR - standards summary omitted from run_summary")
     return(NULL)
   }
   std_file <- std_files[which.max(file.info(std_files)$mtime)]
@@ -173,7 +173,8 @@ build_standards_summary <- function(audit_dir) {
     ungroup() |>
     mutate(plate = sub("\\.csv$", "", input_file, ignore.case = TRUE)) |>
     select(plate, action, missing_standards, lod_override, notes) |>
-    arrange(plate)
+    arrange(plate) |>
+    mutate(across(c(missing_standards, lod_override, notes), ~ replace_na(.x, "")))
 }
 
 
@@ -198,13 +199,13 @@ build_count_pivot <- function(data) {
 
   data |>
     mutate(
-      plate_sort = `Plate#`,   # retain numeric for sorting before stringify
-      `Plate#`   = if_else(is.na(`Plate#`), "Unknown", as.character(`Plate#`))
+      plate_sort = .data$`Plate#`,
+      `Plate#`   = if_else(is.na(.data$`Plate#`), "Unknown", as.character(.data$`Plate#`))
     ) |>
-    count(`Plate#`, plate_sort, .data[[sheet_col]]) |>
+    count(.data$`Plate#`, plate_sort, .data[[sheet_col]]) |>
     rename(Target = all_of(sheet_col)) |>
-    pivot_wider(names_from = Target, values_from = n, values_fill = 0L) |>
-    arrange(plate_sort, `Plate#`) |>
+    pivot_wider(names_from = "Target", values_from = n, values_fill = 0L) |>
+    arrange(plate_sort, .data$`Plate#`) |>
     select(-plate_sort)
 }
 
@@ -215,10 +216,10 @@ build_count_pivot <- function(data) {
 # Inserts a "run_summary" sheet as the FIRST sheet of the
 # workbook containing four stacked labelled tables:
 #
-#   1. Decision Breakdown      — plate x rule_id counts
-#   2. Standards Check Results — plate-level action + LOD info
-#   3. Final Sample Counts     — plate x target (all_data)
-#   4. Review Sample Counts    — plate x target (review_data)
+#   1. Decision Breakdown      - plate x rule_id counts
+#   2. Standards Check Results - plate-level action + LOD info
+#   3. Final Sample Counts     - plate x target (all_data)
+#   4. Review Sample Counts    - plate x target (review_data)
 #
 # Tables with no data are replaced by a single "(no data)"
 # notice row.  A 2-row gap and bold section-header row
@@ -335,7 +336,7 @@ add_summary_sheet <- function(wb, decision_wide, standards_tbl,
   }
 
   current_row <- write_block(
-    "1. Decision Breakdown  (most recent run per plate — counts by rule)",
+    "1. Decision Breakdown  (most recent run per plate - counts by rule)",
     decision_wide,
     numeric_cols = dec_int_cols(decision_wide)
   )
@@ -344,12 +345,12 @@ add_summary_sheet <- function(wb, decision_wide, standards_tbl,
     standards_tbl
   )
   current_row <- write_block(
-    "3. Final Sample Counts  (all_samples — by Plate# and Target)",
+    "3. Final Sample Counts  (all_samples - by Plate# and Target)",
     all_counts,
     numeric_cols = count_int_cols(all_counts)
   )
   current_row <- write_block(
-    "4. Review Sample Counts  (review_samples — by Plate# and Target)",
+    "4. Review Sample Counts  (review_samples - by Plate# and Target)",
     review_counts,
     numeric_cols = count_int_cols(review_counts)
   )
@@ -366,13 +367,17 @@ add_summary_sheet <- function(wb, decision_wide, standards_tbl,
     max(vapply(all_tbls, ncol, integer(1L)))
   else 1L
 
-  col_widths <- vapply(seq_len(max_cols), function(j) {
-    # Collect header names at position j from every table that is wide enough
-    hdrs <- vapply(all_tbls, function(tbl) {
-      if (ncol(tbl) >= j) nchar(names(tbl)[[j]]) else 0L
-    }, integer(1L))
-    max(col_width_min, max(hdrs))
-  }, numeric(1L))
+  if (length(all_tbls) == 0L) {
+    col_widths <- rep(col_width_min, max_cols)
+  } else {
+    col_widths <- vapply(seq_len(max_cols), function(j) {
+      # Collect header names at position j from every table that is wide enough
+      hdrs <- vapply(all_tbls, function(tbl) {
+        if (ncol(tbl) >= j) nchar(names(tbl)[[j]]) else 0L
+      }, integer(1L))
+      max(col_width_min, max(hdrs))
+    }, numeric(1L))
+  }
 
   setColWidths(wb, sn,
                cols   = seq_len(max_cols),
@@ -380,7 +385,7 @@ add_summary_sheet <- function(wb, decision_wide, standards_tbl,
 
   # ---- Move run_summary to sheet position 1 ----
   n_sheets <- length(wb$worksheets)
-  worksheetOrder(wb) <- c(n_sheets, seq_len(n_sheets - 1L))
+  wb$sheetOrder <- c(n_sheets, seq_len(n_sheets - 1L))
 
   invisible(wb)
 }
@@ -409,7 +414,7 @@ save_workbook_retry <- function(wb, path,
     attempt <- attempt + 1
     result  <- tryCatch({
       # Suppress the transient openxlsx unzip notice that fires on temp-file
-      # cleanup — it is advisory-only and carries no data-loss risk.
+      # cleanup - it is advisory-only and carries no data-loss risk.
       # All other warnings are left unaffected (not promoted to errors).
       withCallingHandlers(
         saveWorkbook(wb, file = path, overwrite = overwrite),
@@ -433,7 +438,7 @@ save_workbook_retry <- function(wb, path,
     }
     cat(sprintf(
       "  [write retry %d/%d] Could not write to '%s'. Waiting %ds...\n",
-      attempt, max_tries, basename(path), wait_secs
+      attempt, max_tries, basename(path), as.integer(wait_secs)
     ))
     Sys.sleep(wait_secs)
   }
@@ -446,9 +451,9 @@ save_workbook_retry <- function(wb, path,
 #
 # Extracts Date and Plate# from a CSV filename using the
 # conventions seen in CFX Manager exports:
-#   Date   — a leading YYMMDD or YYYYMMDD block
-#   Plate# — the integer following the word "plate"
-#            (case-insensitive, e.g. "plate9" → 9)
+#   Date   - a leading YYMMDD or YYYYMMDD block
+#   Plate# - the integer following the word "plate"
+#            (case-insensitive, e.g. "plate9" -> 9)
 #
 # Returns a named list: $date (character "YYYY-MM-DD" or NA)
 #                       $plate_num (integer or NA)
@@ -505,7 +510,7 @@ parse_filename <- function(fname) {
       \\.?           # optional dot after 'no.'
       \\s*           # optional whitespace
   )?
-  (\\d{1,3})         # capture the plate number (1–3 digits)
+  (\\d{1,3})         # capture the plate number (1-3 digits)
 "
 
   plate_match <- regexec(plate_pattern, stem, perl = TRUE)
@@ -587,9 +592,9 @@ prompt_file_action <- function(path, label) {
   cat(wb_stats(path), "\n")
   cat(strrep("-", .pg_width), "\n")
   cat(" Options:\n")
-  cat("   O = Overwrite  — discard existing workbook and rebuild\n")
-  cat("   A = Append     — merge new data into existing workbook\n")
-  cat("   N = New file   — save under a different name\n")
+  cat("   O = Overwrite  - discard existing workbook and rebuild\n")
+  cat("   A = Append     - merge new data into existing workbook\n")
+  cat("   N = New file   - save under a different name\n")
 
   if (!interactive()) {
     cat("\n  [non-interactive] Defaulting to O (overwrite).\n")
@@ -824,7 +829,7 @@ read_and_annotate <- function(files, label) {
 
     # --- Extract repeat number from filename ---
     # perl = TRUE is required so that the inline (?i) case-insensitivity flag
-    # is honoured — R's default TRE engine silently ignores PCRE inline flags.
+    # is honoured - R's default TRE engine silently ignores PCRE inline flags.
     repeat_pattern <- "(?i)(rpt|rep|repeat)\\s*([0-9]*)"
     rp             <- regexec(repeat_pattern, stem, perl = TRUE)
     repeat_match   <- regmatches(stem, rp)[[1]]   # renamed from 'rm' to avoid shadowing base rm()
@@ -837,7 +842,7 @@ read_and_annotate <- function(files, label) {
       if (nzchar(repeat_match[3])) {
         repeat_num <- as.integer(repeat_match[3])
       } else {
-        # Found keyword but no number — treat as repeat 1
+        # Found keyword but no number - treat as repeat 1
         repeat_num <- 1L
       }
     }
@@ -859,13 +864,13 @@ read_and_annotate <- function(files, label) {
     missing_cols <- setdiff(.EXPECTED_SRC_COLS, names(dat))
     if (length(missing_cols) > 0) {
       report("!", sprintf(
-        "%s — missing column(s) filled with NA: %s",
+        "%s - missing column(s) filled with NA: %s",
         basename(fp), paste(missing_cols, collapse = ", ")
       ))
       for (mc in missing_cols) dat[[mc]] <- NA_character_
     }
 
-    # --- Rename review_reason → Review Reason ---
+    # --- Rename review_reason -> Review Reason ---
     dat <- dat |>
       rename(`Review Reason` = review_reason)
 
@@ -961,7 +966,7 @@ read_and_annotate <- function(files, label) {
           ))
         } else {
           report("~", sprintf(
-            "%s: %d row(s) with target(s) %s will share sheet '%s' — original labels preserved  [UPDATE_TARGET_TO_CANONICAL = FALSE]",
+            "%s: %d row(s) with target(s) %s will share sheet '%s' - original labels preserved  [UPDATE_TARGET_TO_CANONICAL = FALSE]",
             label, n_hits,
             paste(sprintf("'%s'", hit_vals), collapse = ", "),
             canonical
@@ -1035,7 +1040,7 @@ load_existing_sheets <- function(path) {
     }
   )
 
-  # Exclude the run_summary sheet — it contains audit tables, not
+  # Exclude the run_summary sheet - it contains audit tables, not
   # sample data, and cannot be bound with the target data sheets.
   sheet_names <- sheet_names[sheet_names != "run_summary"]
 
@@ -1066,7 +1071,7 @@ load_existing_sheets <- function(path) {
       # RISK-06: .sheet_target is dropped before writing to Excel, so it must
       # be rebuilt here so build_workbook() can route rows to the right sheet.
       # Re-apply alias resolution using the same TARGET_ALIASES as the current
-      # run (assumes aliases are stable between runs — documented in Section 1).
+      # run (assumes aliases are stable between runs - documented in Section 1).
       if (!".sheet_target" %in% names(df)) {
         if (length(TARGET_ALIASES) > 0 && "Target" %in% names(df)) {
           alias_lookup <- unlist(lapply(names(TARGET_ALIASES), function(cn) {
@@ -1099,7 +1104,7 @@ load_existing_sheets <- function(path) {
 
   if (length(present) < length(key_cols)) {
     report("!", sprintf(
-      "%s: deduplication skipped — key column(s) missing: %s",
+      "%s: deduplication skipped - key column(s) missing: %s",
       label, paste(setdiff(key_cols, present), collapse = ", ")
     ))
     return(combined)
@@ -1162,7 +1167,7 @@ cat(" Loading audit data for run_summary sheet\n")
 cat(strrep("-", .pg_width), "\n", sep = "")
 
 if (!is.null(AUDIT_DIR) && !dir.exists(AUDIT_DIR)) {
-  report("!", sprintf("AUDIT_DIR not found: '%s' — audit tables will be empty", AUDIT_DIR))
+  report("!", sprintf("AUDIT_DIR not found: '%s' - audit tables will be empty", AUDIT_DIR))
   AUDIT_DIR <- NULL
 }
 
@@ -1221,12 +1226,12 @@ build_workbook <- function(data, wb_label) {
   targets   <- targets[!is.na(targets) & nzchar(targets)]
 
   if (length(targets) == 0) {
-    report("!", sprintf("%s: no target values found — empty workbook will be written", wb_label))
+    report("!", sprintf("%s: no target values found - empty workbook will be written", wb_label))
     return(wb)
   }
 
   cat(sprintf("\n%s\n", strrep("-", .pg_width)))
-  cat(sprintf(" Building %s workbook — %d target sheet(s)\n",
+  cat(sprintf(" Building %s workbook - %d target sheet(s)\n",
               wb_label, length(targets)))
   cat(strrep("-", .pg_width), "\n", sep = "")
 
@@ -1306,7 +1311,7 @@ build_workbook <- function(data, wb_label) {
                  widths = col_widths)
 
     pb_tick(pb, i, detail = sn)
-    report("+", sprintf("Sheet '%-20s' — %d row(s)", sn, n_rows))
+    report("+", sprintf("Sheet '%-20s' - %d row(s)", sn, n_rows))
   }
 
   pb_done(pb)
@@ -1394,7 +1399,7 @@ summarise_workbook <- function(data, label) {
     count(.display, name = "rows") |>
     rename(Sheet = .display) |>
     arrange(Sheet)
-  cat(sprintf("\n  %s — %d row(s) across %d sheet(s):\n",
+  cat(sprintf("\n  %s - %d row(s) across %d sheet(s):\n",
               label, nrow(data), nrow(tbl)))
   print(tbl, n = Inf)
 }

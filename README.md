@@ -51,7 +51,7 @@ library(qpcrpipeline)
 ## Requirements
 
 - R >= 4.1.0 (for native pipe support, though `magrittr` `%>%` is supported on older versions)
-- Packages: `dplyr`, `tidyr`, `openxlsx`, `readr`, `stringr`, `purrr`, `cli`, `fs`, `rlang`, `lubridate`
+- Packages: `dplyr`, `tidyr`, `openxlsx`, `readr`, `stringr`, `cli`, `fs`, `rlang`, `lubridate`
 
 ## Documentation
 
@@ -64,4 +64,4 @@ If you use this pipeline in published work, please cite:
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE)
+MIT - see [LICENSE](LICENSE)

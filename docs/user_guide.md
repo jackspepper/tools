@@ -27,9 +27,9 @@ Each script requires one or more R packages to be installed before it will run. 
 install.packages(c("tidyverse", "openxlsx"))
 ```
 
-Installation may take several minutes and will print a lot of text to the console — this is normal. You will see a message like `package X successfully unpacked` when each package is ready. If you see a red error message saying a package could not be installed, see the [Troubleshooting](#troubleshooting) section at the end of this guide.
+Installation may take several minutes and will print a lot of text to the console - this is normal. You will see a message like `package X successfully unpacked` when each package is ready. If you see a red error message saying a package could not be installed, see the [Troubleshooting](#troubleshooting) section at the end of this guide.
 
-> **Package version requirements:** The script checks that your installed packages are recent enough to run. If you installed R or tidyverse more than two years ago, you may be prompted to update. If an error appears mentioning a minimum version, run the install command above again — reinstalling updates to the latest version automatically.
+> **Package version requirements:** The script checks that your installed packages are recent enough to run. If you installed R or tidyverse more than two years ago, you may be prompted to update. If an error appears mentioning a minimum version, run the install command above again - reinstalling updates to the latest version automatically.
 
 ---
 
@@ -67,13 +67,13 @@ MyExperiment_2024/
       └── file_tree.txt
 ```
 
-**Before you begin:** Open RStudio, then use **File → Open Project** or **File → Open File** to navigate to your experiment folder and open the cleaning script (`qpcr_cleaning_pipeline.R`). Ensure that RStudio's working directory is set to your experiment folder — you should see the correct path in the Files panel on the lower right. If it shows the wrong folder, use **Session → Set Working Directory → To Source File Location**.
+**Before you begin:** Open RStudio, then use **File -> Open Project** or **File -> Open File** to navigate to your experiment folder and open the cleaning script (`qpcr_cleaning_pipeline.R`). Ensure that RStudio's working directory is set to your experiment folder - you should see the correct path in the Files panel on the lower right. If it shows the wrong folder, use **Session -> Set Working Directory -> To Source File Location**.
 
 ---
 
 ## File Naming Conventions
 
-The consolidation script (Script 2) reads the filename of each plate CSV to automatically populate two metadata columns in the Excel output: the run **Date** and the **Plate number**. If your filenames do not follow the expected conventions, these columns will be blank in your final workbook — the data itself is unaffected, but you will need to fill in those columns manually after consolidation.
+The consolidation script (Script 2) reads the filename of each plate CSV to automatically populate two metadata columns in the Excel output: the run **Date** and the **Plate number**. If your filenames do not follow the expected conventions, these columns will be blank in your final workbook - the data itself is unaffected, but you will need to fill in those columns manually after consolidation.
 
 ### Recommended filename format
 
@@ -84,10 +84,10 @@ YYMMDD_PlateN_[target(s)][_optional-info].csv
 Examples of filenames that will parse correctly:
 
 ```
-241212_Plate1_fucp_hpd3.csv          → Date: 2024-12-12, Plate: 1
-20241212_Plate2_lyta_copb.csv        → Date: 2024-12-12, Plate: 2
-241215_Plate3_nuc_rpt2.csv           → Date: 2024-12-15, Plate: 3, Repeat: 2
-241215_plate_no3_lyta.csv            → Date: 2024-12-15, Plate: 3
+241212_Plate1_fucp_hpd3.csv          -> Date: 2024-12-12, Plate: 1
+20241212_Plate2_lyta_copb.csv        -> Date: 2024-12-12, Plate: 2
+241215_Plate3_nuc_rpt2.csv           -> Date: 2024-12-15, Plate: 3, Repeat: 2
+241215_plate_no3_lyta.csv            -> Date: 2024-12-15, Plate: 3
 ```
 
 ### Date parsing rules
@@ -98,7 +98,7 @@ The date must appear at the very beginning of the filename, followed immediately
 |--------|---------|-----------|
 | YYMMDD (recommended) | `241212_` | 2024-12-12 |
 | YYYYMMDD | `20241212_` | 2024-12-12 |
-| No date at start | `Plate1_fucp.csv` | (blank — will warn) |
+| No date at start | `Plate1_fucp.csv` | (blank - will warn) |
 
 ### Plate number parsing rules
 
@@ -109,27 +109,27 @@ Plate1    Plate_2    Plate-3    plate 4
 plate#5   plate no. 6   PlateNo7
 ```
 
-> **Limitation — not a blocker:** If a filename does not contain a parseable date or plate number, a warning will appear in the console during consolidation and those cells will be blank in the Excel output. Your data is still fully processed and consolidated — only those two metadata columns will be empty. You can fill them in manually in Excel after the run, or rename your files to follow the convention before re-running.
+> **Limitation - not a blocker:** If a filename does not contain a parseable date or plate number, a warning will appear in the console during consolidation and those cells will be blank in the Excel output. Your data is still fully processed and consolidated - only those two metadata columns will be empty. You can fill them in manually in Excel after the run, or rename your files to follow the convention before re-running.
 
 ### Repeat number parsing
 
 If a plate was repeated, you can include `rpt`, `rep`, or `repeat` followed by a number in the filename. This populates a `Repeat#` column in the consolidated Excel output:
 
 ```
-241215_Plate3_fucp_rpt2.csv          → Repeat#: 2
-241215_Plate3_fucp_rep2.csv          → Repeat#: 2
-241215_Plate3_fucp_repeat2.csv       → Repeat#: 2
-241215_Plate3_fucp_rpt.csv           → Repeat#: 1  (keyword without number = 1)
+241215_Plate3_fucp_rpt2.csv          -> Repeat#: 2
+241215_Plate3_fucp_rep2.csv          -> Repeat#: 2
+241215_Plate3_fucp_repeat2.csv       -> Repeat#: 2
+241215_Plate3_fucp_rpt.csv           -> Repeat#: 1  (keyword without number = 1)
 ```
 
-> **Reserved words in sample names — read carefully**
+> **Reserved words in sample names - read carefully**
 >
 > The cleaning script automatically removes any row where the **Sample** column contains the words `Std`, `NTC`, or `Neg` (case-insensitive, checked as a partial match). These are treated as control or standard wells, not experimental samples. **Do not use these words in your real sample names.**
 >
 > Examples of names that **would be removed**:
-> - Any sample containing `Std` — e.g. `Std-001`, `Std_High`
-> - Any sample containing `NTC` — e.g. `NTC`, `NTC_plate2`
-> - Any sample containing `Neg` — e.g. `NegControl`, `Neg_sample`
+> - Any sample containing `Std` - e.g. `Std-001`, `Std_High`
+> - Any sample containing `NTC` - e.g. `NTC`, `NTC_plate2`
+> - Any sample containing `Neg` - e.g. `NegControl`, `Neg_sample`
 
 ---
 
@@ -137,7 +137,7 @@ If a plate was repeated, you can include `rpt`, `rep`, or `repeat` followed by a
 
 ### Required CSV format
 
-Your raw CSV files must be direct exports from CFX Maestro, without any structural modifications. The script dynamically locates the data table inside the file by searching for a row that begins with the word `Well` — this means CFX Maestro's metadata header rows at the top of the file are handled automatically and do not need to be removed.
+Your raw CSV files must be direct exports from CFX Maestro, without any structural modifications. The script dynamically locates the data table inside the file by searching for a row that begins with the word `Well` - this means CFX Maestro's metadata header rows at the top of the file are handled automatically and do not need to be removed.
 
 **Minor edits that are acceptable:** Changing sample names, target names, and Content labels within CFX Maestro or directly in the CSV.
 
@@ -148,8 +148,8 @@ Your raw CSV files must be direct exports from CFX Maestro, without any structur
 | `Well` | Well identifier (e.g. A01, B02) |
 | `Fluor` | Fluorophore channel (e.g. FAM, HEX, ROX) |
 | `Target` | The gene/target being measured (e.g. fucp, hpd3, uni) |
-| `Content` | Well type label — includes standard labels (Std-001 to Std-006), NTC, and sample identifiers |
-| `Sample` | Sample name — your experimental sample identifier |
+| `Content` | Well type label - includes standard labels (Std-001 to Std-006), NTC, and sample identifiers |
+| `Sample` | Sample name - your experimental sample identifier |
 | `Cq` | Quantification cycle value |
 | `Starting Quantity (SQ)` | Calculated starting quantity from the standard curve |
 
@@ -161,8 +161,8 @@ Both label formats are accepted:
 
 | Label format | Example | Notes |
 |-------------|---------|-------|
-| Canonical (preferred) | `Std-001`, `Std-002`, `Std-003` … | No warning produced |
-| Abbreviated | `Std-01`, `Std-02`, `Std-03` … | Warning in console and audit log, but still processed |
+| Canonical (preferred) | `Std-001`, `Std-002`, `Std-003`...| No warning produced |
+| Abbreviated | `Std-01`, `Std-02`, `Std-03`...| Warning in console and audit log, but still processed |
 
 **Why this matters:** Standards Std-001 through Std-003 define the upper limit of detection (LOD Hi), and Std-004 through Std-006 define the lower limit (LOD Lo). If standards are missing, the script cannot reliably apply these thresholds and will ask you how to proceed.
 
@@ -172,10 +172,10 @@ Each target (gene) in your data has a defined upper and lower limit of quantific
 
 | LOD boundary | Value | What it means |
 |-------------|-------|---------------|
-| LOD Hi (upper) | 2000 SQ (most targets); 200 SQ (uni/univ/universal) | Maximum reliable SQ from the standard curve. Samples above this are flagged — results are extrapolated and unreliable. |
+| LOD Hi (upper) | 2000 SQ (most targets); 200 SQ (uni/univ/universal) | Maximum reliable SQ from the standard curve. Samples above this are flagged - results are extrapolated and unreliable. |
 | LOD Lo (lower) | 0.012 SQ (most targets); 0.0012 SQ (uni/univ/universal) | Minimum detectable SQ. Samples below this (or with no amplification) are set to LOD Lo ÷ 2 as a below-detection placeholder. |
 
-> **Critical rule — targets with different LOD values cannot share a plate** plate**
+> **Critical rule - targets with different LOD values cannot share a plate** plate**
 >
 > The pipeline processes all targets on a plate together and applies a single set of LOD values to all rows. If two targets on the same plate have different LOD Hi or LOD Lo values, the script will stop with an error. This means you cannot include both `uni` (LOD Hi = 200) and `fucp` (LOD Hi = 2000) on the same plate CSV. If you receive an error such as `Different Hi values found: 200, 2000`, check which targets are present in that plate file and separate them before re-running.
 
@@ -185,7 +185,7 @@ The script expects each experimental sample to have exactly two replicate wells 
 
 ### The Universal Target (uni / univ / universal)
 
-`uni`, `univ`, and `universal` are treated as an internal positive control — a target that should amplify in every sample. If any sample completely fails to amplify for this target or produces a value below LOD Lo, it is flagged as an "unexpected negative". All three spellings are recognised as the same target and consolidated onto a single sheet in the Excel output.
+`uni`, `univ`, and `universal` are treated as an internal positive control - a target that should amplify in every sample. If any sample completely fails to amplify for this target or produces a value below LOD Lo, it is flagged as an "unexpected negative". All three spellings are recognised as the same target and consolidated onto a single sheet in the Excel output.
 
 ---
 
@@ -193,7 +193,7 @@ The script expects each experimental sample to have exactly two replicate wells 
 
 The cleaning pipeline (`qpcr_cleaning_pipeline.R`) is the first script to run. It reads your raw plate CSV files, applies quality control checks, and writes cleaned output files ready for the consolidation step.
 
-### Step 1 — Check your settings (Section 1 of the script)
+### Step 1 - Check your settings (Section 1 of the script)
 
 #### Input directory
 
@@ -227,13 +227,13 @@ n_standards <- 6
 
 The number of standard wells expected on each plate. Change this only if your standard curve uses a different number of points.
 
-### Step 2 — Check your LOD definitions (Section 2 of the script)
+### Step 2 - Check your LOD definitions (Section 2 of the script)
 
 Section 2 defines the upper and lower limits of detection for each target. The script comes pre-configured with values for the targets used in your laboratory. You only need to edit this section if you are adding a new target that is not already listed.
 
 If the script stops with an error such as `Missing targets in LOD_Hi: [targetname]`, a new target needs to be added to Section 2.
 
-### Step 3 — Run the script
+### Step 3 - Run the script
 
 With the script open in RStudio, press **Ctrl+Shift+Enter** (Windows/Linux) or **Cmd+Shift+Enter** (Mac) to run the entire script. The script will begin immediately and print progress to the Console panel at the bottom of RStudio.
 
@@ -266,7 +266,7 @@ RawData  [depth requested: 2 │ deepest file: 0 level(s) │ 2 file(s) to proce
   File tree saved to: audit/file_tree.txt
 ```
 
-Lists every CSV file the script found and will process. Check this carefully — if a file you expected is missing, it may be in the wrong folder or have the wrong extension.
+Lists every CSV file the script found and will process. Check this carefully - if a file you expected is missing, it may be in the wrong folder or have the wrong extension.
 
 #### Standards check (all plates pass)
 
@@ -301,7 +301,7 @@ This is the ideal outcome. If the standards check fails for one or more plates, 
   LOD             │ Hi=2000     Lo=0.012    │ targets: fucp, hpd3
 > Step 0 │ Removing unnamed samples ...
   Step 0 │ done │ 0 removed
-> Step 1 │ SQ adjustment (below LOD_Lo → LOD_Lo / 2) ...
+> Step 1 │ SQ adjustment (below LOD_Lo -> LOD_Lo / 2) ...
   Step 1 │ done │ 4 adjusted
 > Step 2 │ Removing matched patterns (Std, NTC, Neg) ...
   Step 2 │ done │ 84 removed
@@ -316,12 +316,12 @@ This is the ideal outcome. If the standards check fails for one or more plates, 
 ```
 
 Key things to check:
-- **Import** — confirms the Well header was found and shows the row count before cleaning
-- **LOD** — confirms which targets were found and which LOD values are being applied
-- **Step 1** — shows how many SQ values were below LOD Lo; a high number may indicate poor assay sensitivity
-- **Step 2** — shows how many rows were removed (standards, NTCs, negative controls)
-- **Step 4** — shows how many replicate groups were flagged for review
-- **Output** — final row count and review count
+- **Import** - confirms the Well header was found and shows the row count before cleaning
+- **LOD** - confirms which targets were found and which LOD values are being applied
+- **Step 1** - shows how many SQ values were below LOD Lo; a high number may indicate poor assay sensitivity
+- **Step 2** - shows how many rows were removed (standards, NTCs, negative controls)
+- **Step 4** - shows how many replicate groups were flagged for review
+- **Output** - final row count and review count
 
 #### Run summary
 
@@ -348,26 +348,26 @@ If one or more plates are missing expected standard wells, the script prints a s
 
 | Scenario | What it means | Script label |
 |----------|--------------|--------------|
-| Both endpoints present, 1–2 interior standards missing | Std-001 and Std-006 are present. The LOD boundaries can still be inferred. | `[MIDDLE ONLY]` |
-| Both endpoints present, 3+ interior standards missing | As above but more standards are missing. | `[MIDDLE ONLY — >2 missing]` |
+| Both endpoints present, 1-2 interior standards missing | Std-001 and Std-006 are present. The LOD boundaries can still be inferred. | `[MIDDLE ONLY]` |
+| Both endpoints present, 3+ interior standards missing | As above but more standards are missing. | `[MIDDLE ONLY - >2 missing]` |
 | An endpoint standard is missing | Std-001 (defines LOD Hi) or Std-006 (defines LOD Lo) is absent. | `[ENDPOINT MISSING]` |
 
-**Option S — Skip all failing plates:** The plates with missing standards are excluded from this run. Choose this if the plate run was compromised and the data should not be used.
+**Option S - Skip all failing plates:** The plates with missing standards are excluded from this run. Choose this if the plate run was compromised and the data should not be used.
 
-**Option M — Mixed handling (recommended for middle-only failures):** The script will ask you to confirm or adjust the LOD values for middle-only plates using a Y/N prompt. Plates missing an endpoint standard will require you to manually enter LOD values.
+**Option M - Mixed handling (recommended for middle-only failures):** The script will ask you to confirm or adjust the LOD values for middle-only plates using a Y/N prompt. Plates missing an endpoint standard will require you to manually enter LOD values.
 
 For a plate with middle-only missing standards:
 
 ```
 Targets : fucp
-LOD Hi  [normal = 2000 │ Std-001 present → inferred; applies to all targets]
-→ Is LOD Hi = 2000 correct for this plate? [Y/n]: _
+LOD Hi  [normal = 2000 │ Std-001 present -> inferred; applies to all targets]
+-> Is LOD Hi = 2000 correct for this plate? [Y/n]: _
 ```
 
 **Y:** Accept the standard LOD Hi value. Choose this if you have no reason to believe the standard curve behaved differently.  
 **n:** Enter a different value. Use this only if you have inspected the standard curve in CFX Maestro and determined a different value is appropriate.
 
-**Option F — Force all plates through:** All failing plates are processed with manually entered LOD values for every plate.
+**Option F - Force all plates through:** All failing plates are processed with manually entered LOD values for every plate.
 
 #### Blank sample names
 
@@ -382,14 +382,14 @@ If a plate has no sample names at all in the Sample column:
     Content : Std-001, Std-002, ..., Unknown, NTC
 ------------------------------------------------------------
  Options:
-   S = Skip all   — exclude these plates from this run
+   S = Skip all   - exclude these plates from this run
    C = Use Content column as Sample name for all these plates
  Enter S or C: _
 ```
 
-**Option S — Skip:** The plate is excluded from the run. Choose this if you want to add sample names before reprocessing.
+**Option S - Skip:** The plate is excluded from the run. Choose this if you want to add sample names before reprocessing.
 
-**Option C — Use Content column as Sample name:** The Content column is substituted for the missing Sample name. This is logged in the audit trail. Choose this only as a temporary measure.
+**Option C - Use Content column as Sample name:** The Content column is substituted for the missing Sample name. This is logged in the audit trail. Choose this only as a temporary measure.
 
 ---
 
@@ -397,7 +397,7 @@ If a plate has no sample names at all in the Sample column:
 
 After the cleaning pipeline has finished, run the consolidation script (`qpcr_consolidation.R`). This reads all the cleaned CSV files from the `outputs` folder and assembles them into two Excel workbooks.
 
-### Step 1 — Check your settings (Section 1 of the script)
+### Step 1 - Check your settings (Section 1 of the script)
 
 #### Input directory
 
@@ -425,7 +425,7 @@ TARGET_ALIASES <- list(
 
 Treats `uni`, `universal`, and `univ` as the same target and consolidates them onto a single sheet named `uni`. You do not normally need to change this.
 
-### Step 2 — Run the script
+### Step 2 - Run the script
 
 Press **Ctrl+Shift+Enter** (or **Cmd+Shift+Enter** on Mac).
 
@@ -441,17 +441,17 @@ If the output Excel files already exist from a previous run:
   Sheets   : run_summary, fucp, hpd3, lyta, uni (5 sheets)
 ------------------------------------------------------------
  Options:
-   O = Overwrite  — discard existing workbook and rebuild
-   A = Append     — merge new data into existing workbook
-   N = New file   — save under a different name
+   O = Overwrite  - discard existing workbook and rebuild
+   A = Append     - merge new data into existing workbook
+   N = New file   - save under a different name
  Enter O, A, or N: _
 ```
 
-**O — Overwrite:** The existing workbook is deleted and rebuilt from scratch. Use this when you have reprocessed all plates or want a completely fresh consolidation.
+**O - Overwrite:** The existing workbook is deleted and rebuilt from scratch. Use this when you have reprocessed all plates or want a completely fresh consolidation.
 
-**A — Append:** New data from freshly processed plates is merged into the existing workbook. Duplicate rows are removed automatically. Use this when adding new plates to an ongoing experiment.
+**A - Append:** New data from freshly processed plates is merged into the existing workbook. Duplicate rows are removed automatically. Use this when adding new plates to an ongoing experiment.
 
-**N — New file:** The existing workbook is kept and the new consolidation is saved under a different name. You will be prompted to enter a suffix, or press Enter to use a timestamp automatically.
+**N - New file:** The existing workbook is kept and the new consolidation is saved under a different name. You will be prompted to enter a suffix, or press Enter to use a timestamp automatically.
 
 ---
 
@@ -461,9 +461,9 @@ If the output Excel files already exist from a previous run:
 
 For each plate CSV processed, two CSV files are written:
 
-**`[platename]_all_samples.csv`** — Every experimental row after cleaning. Standards, NTCs, and rows with no sample name have been removed, but all remaining rows are present regardless of whether they passed QC.
+**`[platename]_all_samples.csv`** - Every experimental row after cleaning. Standards, NTCs, and rows with no sample name have been removed, but all remaining rows are present regardless of whether they passed QC.
 
-**`[platename]_review_samples.csv`** — Only rows flagged as needing manual review. This is a subset of the `_all_samples` file. If a replicate group is flagged, both rows of that pair appear here.
+**`[platename]_review_samples.csv`** - Only rows flagged as needing manual review. This is a subset of the `_all_samples` file. If a replicate group is flagged, both rows of that pair appear here.
 
 ### Column descriptions
 
@@ -480,14 +480,14 @@ For each plate CSV processed, two CSV files are written:
 | `AverageSQ` | Added by pipeline | Mean of replicate SQ values after LOD Lo adjustment. Only on the first row of each pair. |
 | `review_reason` | Added by pipeline | Plain-English explanation of why a row was flagged. Blank if the row passed all checks. Multiple reasons separated by semicolons. |
 
-### Review flags — what they mean and what to do
+### Review flags - what they mean and what to do
 
 | Flag | What it means | Common causes | Suggested action |
 |------|--------------|---------------|-----------------|
 | `\|DeltaCq\| exceeds threshold` | Duplicate Cq values differ by more than 1.0 cycle. | Pipetting error, well-to-well variation, partial inhibition. | Check amplification curves in CFX Maestro. If one looks abnormal, exclude that replicate and note it. |
 | `Only one replicate present` | Only a single well found for this sample/target. | Replicate not plated, failed to amplify, or excluded upstream. | Check the plate layout. Determine whether the single value is usable or if re-running is needed. |
 | `One Cq is NA/NaN and the other is numeric` | One replicate amplified and one did not. | Partial inhibition, failed well, insufficient template. | Inspect both wells in CFX Maestro. Consider excluding the non-amplifying well. |
-| `More than 2 replicates — manual reconciliation required` | Three or more wells found for this group. Cq and SQ are blanked. | Sample plated in triplicate, mislabelled layout, or two plates with the same sample names. | **Required action:** open `_all_samples.csv`, locate the group, determine the intended duplicates, and enter correct values manually. |
+| `More than 2 replicates - manual reconciliation required` | Three or more wells found for this group. Cq and SQ are blanked. | Sample plated in triplicate, mislabelled layout, or two plates with the same sample names. | **Required action:** open `_all_samples.csv`, locate the group, determine the intended duplicates, and enter correct values manually. |
 | `AverageSQ > LOD_Hi` | Average SQ exceeds the top of the standard curve. | Very high bacterial load, insufficient dilution. | Consider repeating with a higher dilution. Note the limitation if using the result. |
 | `Unexpected negative for always-positive target (No amplification)` | Universal target produced no Cq value in any replicate. | Degraded DNA, very low concentration, failed extraction. | Investigate extraction quality before drawing conclusions from any target for this sample. |
 | `Unexpected negative for always-positive target (Below LOD_Lo)` | Universal target produced Cq but SQ was below LOD Lo. | Very low bacterial DNA, poor extraction, borderline inhibition. | Interpret all results for this sample with caution. |
@@ -498,7 +498,7 @@ For each plate CSV processed, two CSV files are written:
 The consolidation script produces two Excel workbooks: `qpcr_all_samples.xlsx` and `qpcr_review_samples.xlsx`.
 
 **Sheet layout:**
-- The first sheet is always `run_summary` — a dashboard showing QC counts, standards check outcomes, and sample counts per plate and per target
+- The first sheet is always `run_summary` - a dashboard showing QC counts, standards check outcomes, and sample counts per plate and per target
 - Each subsequent sheet contains data for one target (e.g. `fucp`, `hpd3`, `lyta`, `uni`)
 - Each sheet is formatted as an Excel Table with auto-filters and a frozen header row
 
@@ -512,10 +512,10 @@ The consolidation script produces two Excel workbooks: `qpcr_all_samples.xlsx` a
 | `Repeat#` | Repeat number parsed from the filename. Blank if not present. |
 
 **The `run_summary` sheet contains four sections:**
-1. **Decision Breakdown** — how many times each QC rule fired per plate
-2. **Standards Check Results** — pass/skipped/forced outcome per plate
-3. **Final Sample Counts** — plate × target row counts for `all_samples`
-4. **Review Sample Counts** — plate × target row counts for `review_samples`
+1. **Decision Breakdown** - how many times each QC rule fired per plate
+2. **Standards Check Results** - pass/skipped/forced outcome per plate
+3. **Final Sample Counts** - plate × target row counts for `all_samples`
+4. **Review Sample Counts** - plate × target row counts for `review_samples`
 
 ---
 
@@ -614,7 +614,7 @@ This closes the log file connection the script opened. If the problem persists, 
 **`Error: No matching files found`**
 
 Check:
-- Your working directory in RStudio is set to the project folder (**Session → Set Working Directory → To Source File Location**)
+- Your working directory in RStudio is set to the project folder (**Session -> Set Working Directory -> To Source File Location**)
 - The `RawData` folder exists and contains `.csv` files
 - The `input_dir` setting in Section 1 matches your actual folder name (case-sensitive on Mac and Linux)
 
@@ -622,7 +622,7 @@ Check:
 
 The file does not contain the expected `Well` header row. Possible causes:
 - The file was saved from different software or a different export format
-- The file was opened and re-saved in Excel, which may have corrupted the format — always work with copies, not originals
+- The file was opened and re-saved in Excel, which may have corrupted the format - always work with copies, not originals
 - Ensure you are exporting as "Quantification Results" CSV from CFX Maestro
 
 **`Missing required columns`**
@@ -639,7 +639,7 @@ A target in your data is not defined in Section 2. Add the target's LOD values t
 
 **`Error: Different Hi values found: 200, 2000`**
 
-Your plate contains targets with different LOD values (e.g. `uni` and `fucp` on the same plate file). Split the plate's CSV data into separate files — one per LOD group — before running the script.
+Your plate contains targets with different LOD values (e.g. `uni` and `fucp` on the same plate file). Split the plate's CSV data into separate files - one per LOD group - before running the script.
 
 ---
 
@@ -671,22 +671,22 @@ Run the cleaning pipeline (Script 1) first, or check that `input_dir` in the con
 **My sample rows are missing from the output**
 
 Most common reasons:
-- Sample name contained a reserved word (`Std`, `NTC`, or `Neg`) — rows are removed in Step 2
-- Sample name was blank — rows are removed in Step 0
-- Plate was skipped — check the run summary table in the console output
+- Sample name contained a reserved word (`Std`, `NTC`, or `Neg`) - rows are removed in Step 2
+- Sample name was blank - rows are removed in Step 0
+- Plate was skipped - check the run summary table in the console output
 
 **DeltaCq and AverageSQ are blank for some rows**
 
 Expected in two situations:
-- **Second row of a replicate pair** — these values are only on the first row of each pair. Look one row up.
-- **More than 2 replicates (`RV_EXCESS_REPS` flag)** — all Cq, SQ, DeltaCq, and AverageSQ are deliberately blanked. The `review_reason` column will explain this. You must resolve it manually.
+- **Second row of a replicate pair** - these values are only on the first row of each pair. Look one row up.
+- **More than 2 replicates (`RV_EXCESS_REPS` flag)** - all Cq, SQ, DeltaCq, and AverageSQ are deliberately blanked. The `review_reason` column will explain this. You must resolve it manually.
 
 **A target is not showing as a sheet in Excel**
 
 Check:
 - The target name in the CSV must match a name in Section 2 of the cleaning script
 - Check `TARGET_ALIASES` in the consolidation script if the target uses multiple spellings
-- Target names are normalised to lowercase — look for the sheet under the lowercase version of the name
+- Target names are normalised to lowercase - look for the sheet under the lowercase version of the name
 
 ---
 
@@ -698,13 +698,13 @@ Check:
 2. Rename each file to `YYMMDD_PlateN_[targets].csv` and place in the `RawData/` folder
 3. Open `qpcr_cleaning_pipeline.R` in RStudio. Verify `input_dir` points to your `RawData` folder
 4. Press **Ctrl+Shift+Enter** to run Script 1. Respond to any interactive prompts
-5. Check the run summary — confirm all plates show `processed` status and row counts look reasonable
+5. Check the run summary - confirm all plates show `processed` status and row counts look reasonable
 6. Open `qpcr_consolidation.R`. Verify `input_dir` is set to `outputs/`
 7. Press **Ctrl+Shift+Enter** to run Script 2. Choose O/A/N if prompted about existing workbooks
 8. Open `qpcr_all_samples.xlsx` and `qpcr_review_samples.xlsx` from the `consolidated/` folder
 9. Review any rows in the review workbook and investigate flagged results before using them in your analysis
 
-### Reserved words — never use in sample names
+### Reserved words - never use in sample names
 
 | Reserved word | What it matches (examples) | Effect |
 |--------------|---------------------------|--------|
@@ -719,7 +719,7 @@ Check:
 | `\|DeltaCq\| exceeds threshold` | Duplicates differ by > 1 Cq | Review |
 | `Only one replicate present` | Single well only | Review |
 | `One Cq is NA/NaN and the other is numeric` | Mixed amplification in duplicates | Review |
-| `More than 2 replicates — manual reconciliation required` | 3+ wells for this group; Cq/SQ blanked | **Action required** |
+| `More than 2 replicates - manual reconciliation required` | 3+ wells for this group; Cq/SQ blanked | **Action required** |
 | `AverageSQ > LOD_Hi` | Above standard curve range | Review |
 | `Unexpected negative for always-positive target (No amplification)` | uni/univ/universal did not amplify | Investigate sample quality |
 | `Unexpected negative for always-positive target (Below LOD_Lo)` | uni/univ/universal below detection | Investigate sample quality |
