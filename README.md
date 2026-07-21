@@ -9,5 +9,5 @@ usethis::use_course("https://github.com/jackspepper/tools")
 ```
 
 ## Tools
-[Incucyte Confluency Parser](./incucyte_parse_confluency.R) - A script to parse Incucyte confluency analysis data and output a tidy data frame.
+[Incucyte Confluency Parser](./incucyte_parse_confluency.R) - A script to parse Incucyte confluency analysis data and output a tidy data frame.\
 [96-Well Plate Editor](./plate_editor.R) - A standalone browser app to create a visualisation of 96-well plate layouts with colours and dilutions.
