@@ -17,7 +17,13 @@ Date Time	Elapsed	A1	B1	C1	...
 10/07/2026 10:04:00 AM	0	71.11	77.28	71.97	...
 ```
 
-**Matrix** — timestamp line followed by one or more tab-separated well grids. A grid may optionally be preceded by a label line naming the metric (e.g. `Std Err Img`); if unlabeled, the file's top-level `Metric:` field is used:
+**Matrix** — one or more timestamp blocks, each followed by one or more tab-separated
+well grids. A grid may optionally be preceded by a label line naming it:
+
+- a metric name (e.g. `Std Err Img`) — if unlabeled, the file's top-level `Metric:`
+  field is used instead.
+- an image number (e.g. `Image 1`, `Image 2`) for **longitudinal/multi-image
+  exports**, where more than one image is captured per well per timepoint.
 
 ```
 Vessel Name: 20260710_Plate1
@@ -25,12 +31,22 @@ Metric: Phase Object Confluence (%)
 ...
 Time Stamp:	10/07/2026 10:04:00 AM	Elapsed:	0	hours
 
+Image 1
 	1	2	3	...	12
 A	71.11	77.28	71.97	...
 B	...
+
+Image 2
+	1	2	3	...	12
+A	70.98	77.10	71.85	...
+B	...
+
+Time Stamp:	10/07/2026 11:04:00 AM	Elapsed:	1	hours
+...
 ```
 
-Multi-image exports (grids labeled `Image 1`, `Image 2`, ...) are **not yet supported** — see [Notes](#notes).
+Multiple `Time Stamp:` blocks (multiple timepoints in one file) and multiple
+`Image N` grids per timepoint are both fully supported.
 
 ## Dependencies
 
@@ -53,12 +69,11 @@ result <- read_confluency_folder(
   progress = FALSE,               # txtProgressBar instead (ignored if verbose = TRUE)
   export  = FALSE,                # also write to disk (see below)
   out_dir = "output",
-  xlsx    = FALSE,                # FALSE = csv, TRUE = single xlsx workbook
-  skip_on_unsupported = NA        # NA = ask interactively, TRUE = auto-skip, FALSE = error (see Notes)
+  xlsx    = FALSE                 # FALSE = csv, TRUE = single xlsx workbook
 )
 
-result$data      # file, metric, well, row, column, value  (one row per well per metric)
-result$metadata  # file, key, value                        (long format, one row per field)
+result$data      # file, timestamp, elapsed_hours, image, metric, well, row, column, value
+result$metadata  # file, key, value  (long format, one row per field)
 ```
 
 Export can also be run separately on an existing result:
@@ -72,16 +87,36 @@ write_confluency_output(result, out_dir = "output", xlsx = TRUE)
 - **csv** (default): `confluency_data.csv`, `confluency_metadata.csv`
 - **xlsx** (`xlsx = TRUE`): single `confluency_export.xlsx`, one sheet per data frame
 
+### `data` columns
+
+| column          | meaning                                                                 |
+|-----------------|--------------------------------------------------------------------------|
+| `file`          | source filename                                                          |
+| `timestamp`     | this row's timepoint (Date/Time as read from the export)                 |
+| `elapsed_hours` | elapsed hours for that timepoint                                         |
+| `image`         | image number, for longitudinal/multi-image exports; `NA` if the file only has a single image per well/timepoint |
+| `metric`        | which measurement (usually one per file, but matrix files can have several, e.g. confluence + `Std Err Img`) |
+| `well`, `row`, `column` | well identifiers, useful for plate heatmaps (`ggplot2::geom_tile()`) |
+| `value`         | the measurement                                                          |
+
 ## Notes
 
-- `metadata` is long-format (`key`/`value` pairs) so it accommodates files with different fields. Widen with:
+- `metadata` is long-format (`key`/`value` pairs) so it accommodates files with different
+  fields. Widen with:
   ```r
   result$metadata %>% tidyr::pivot_wider(names_from = key, values_from = value)
   ```
-- `data` includes `row`/`column` as well as the combined `well` ID, useful for plate heatmaps (`ggplot2::geom_tile()`).
-- `data` includes a `metric` column. Most files have a single metric (from the `Metric:` metadata field, or `NA` if that field is absent). Matrix files with multiple labeled grids (e.g. confluence + `Std Err Img`) will have one row per well *per metric* — filter to a single metric before reshaping to wide/heatmap form.
-- **Unsupported multi-image exports**: grids labeled `Image 1`, `Image 2`, etc. (multiple longitudinal images from the same plate/timepoint) aren't parsed yet. Behavior is controlled by `skip_on_unsupported`:
-  - `NA` (default) — prompts interactively whether to skip the file; errors if run non-interactively.
-  - `TRUE` — skips affected blocks/files automatically, with a warning.
-  - `FALSE` — stops immediately with an error.
-- `verbose = TRUE` reports per-file row counts and NA values — a quick sanity check that nothing failed to parse.
+- For matrix files with a **single** timepoint, `Time Stamp` / `Elapsed (hours)` are
+  also echoed into `metadata` for convenience. Files with multiple timepoints instead
+  record a `Time Stamp Count` metadata field — use the per-row `timestamp` /
+  `elapsed_hours` columns in `data` for those.
+- `image` is `NA` unless a file has more than one longitudinal image per well per
+  timepoint. Filter to a single image (or `is.na(image)`) before reshaping to
+  wide/heatmap form, alongside filtering to a single `metric` and `timestamp`:
+  ```r
+  result$data %>%
+    filter(file == "Plate4.txt", metric == "Phase Object Confluence (%)",
+           timestamp == first(timestamp), is.na(image) | image == 1)
+  ```
+- `verbose = TRUE` reports per-file row counts and NA values — a quick sanity check
+  that nothing failed to parse.

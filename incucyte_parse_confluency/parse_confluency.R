@@ -3,7 +3,9 @@
 #
 # Parses IncuCyte/HuMEE-style plate confluence export .txt files into two
 # tidy data frames:
-#   - data:     file, metric, well, row, column, value  (one row per well per metric)
+#   - data:     file, timestamp, elapsed_hours, image, metric, well, row,
+#               column, value  (one row per well per metric per image per
+#               timepoint)
 #   - metadata: file, key, value                        (long format)
 #
 # Supports two export layouts, auto-detected per file:
@@ -12,17 +14,22 @@
 #      row per timepoint starting with "Date Time  Elapsed  <well> <well> ...".
 #      (e.g. "..._Prefix.txt", "..._Prefix_1.txt")
 #
-#   2. MATRIX layout: "Time Stamp: <dt>  Elapsed: <n>  hours" line, followed
-#      by one or more blocks of an 8x12 (row A-H x col 1-12) grid. Each block
-#      may optionally be preceded by a metric-name label line (e.g. "Std Err
-#      Img"). If no label line precedes a block, the file's top-level
+#   2. MATRIX layout: one or more "Time Stamp: <dt>  Elapsed: <n>  hours"
+#      blocks, each followed by one or more blocks of an 8x12 (row A-H x
+#      col 1-12) grid. Each grid may optionally be preceded by a label line
+#      naming it - either a metric name (e.g. "Std Err Img") or an image
+#      number for longitudinal/multi-image exports (e.g. "Image 1",
+#      "Image 2"). If no label line precedes a grid, the file's top-level
 #      "Metric:" field is used as the metric name.
 #      (e.g. "..._Prefix_1_2.txt" .. "..._Prefix_1_4.txt")
 #
-#   Multi-image matrix exports (blocks labeled "Image 1", "Image 2", etc.)
-#   are NOT currently supported - these represent longitudinal images from
-#   the same plate/timepoint and need a distinct data model. Such blocks are
-#   skipped, with the caller prompted/warned (see skip_on_unsupported).
+#   Multi-image exports (grids labeled "Image 1", "Image 2", ...) are fully
+#   supported: each image's data is kept as separate rows, distinguished by
+#   the `image` column. Files with a single (unlabeled, or single "Image 1")
+#   grid per timepoint/metric leave `image` as NA, since there's nothing to
+#   distinguish. Multiple "Time Stamp:" blocks (multiple timepoints in one
+#   file) are also supported - `timestamp`/`elapsed_hours` are recorded per
+#   row rather than only in file-level metadata.
 #
 # Usage:
 #   source("parse_confluency.R")
@@ -89,8 +96,8 @@ list_files_depth <- function(path, depth = 0, pattern = "\\.txt$") {
 
 # ------------------------------------------------------------------------
 # Parse a WIDE-ROW layout file (header of well IDs in any order, one row
-# per timepoint). Only the first timepoint row is expected in these
-# single-timepoint exports, but this handles multiple rows if present.
+# per timepoint). Handles multiple timepoint rows if present, recording
+# each row's own Date Time / Elapsed as timestamp / elapsed_hours.
 # ------------------------------------------------------------------------
 .parse_wide_row <- function(lines, file_id, metric_name) {
   header_idx <- which(str_starts(lines, "Date Time\tElapsed"))[1]
@@ -107,27 +114,33 @@ list_files_depth <- function(path, depth = 0, pattern = "\\.txt$") {
     flds   <- str_split(l, "\t")[[1]]
     values <- as.numeric(flds[-(1:2)])
     tibble(
-      file   = file_id,
-      metric = metric_name,
-      well   = well_ids,
-      value  = values
+      file          = file_id,
+      timestamp     = str_trim(flds[1]),
+      elapsed_hours = suppressWarnings(as.numeric(str_trim(flds[2]))),
+      image         = NA_integer_,
+      metric        = metric_name,
+      well          = well_ids,
+      value         = values
     )
   }) %>%
     mutate(
       row    = str_extract(well, "^[A-Za-z]+"),
       column = as.integer(str_extract(well, "\\d+$"))
     ) %>%
-    select(file, metric, well, row, column, value)
+    select(file, timestamp, elapsed_hours, image, metric, well, row, column, value)
 
   data_df
 }
 
 # ------------------------------------------------------------------------
 # Parse a single 8x12 matrix block starting at header_idx (the line
-# "\t1\t2\t...\t12"). Returns list(data = <df rows A-H>, next_idx = <line
-# after the block>).
+# "\t1\t2\t...\t12"). `image_num` (integer or NA) tags which longitudinal
+# image this grid belongs to, for multi-image exports. `timestamp` /
+# `elapsed_hours` tag which Time Stamp block this grid belongs to. Returns
+# list(data = <df rows A-H>, next_idx = <line after the block>).
 # ------------------------------------------------------------------------
-.parse_matrix_block <- function(lines, header_idx, file_id, metric_name) {
+.parse_matrix_block <- function(lines, header_idx, file_id, metric_name,
+                                 timestamp, elapsed_hours, image_num = NA_integer_) {
   col_ids <- str_split(lines[header_idx], "\t")[[1]]
   col_ids <- col_ids[nzchar(col_ids)]
 
@@ -146,86 +159,117 @@ list_files_depth <- function(path, depth = 0, pattern = "\\.txt$") {
     row_id <- flds[1]
     values <- as.numeric(flds[-1])
     tibble(
-      file   = file_id,
-      metric = metric_name,
-      row    = row_id,
-      column = as.integer(col_ids),
-      value  = values
+      file          = file_id,
+      timestamp     = timestamp,
+      elapsed_hours = elapsed_hours,
+      image         = image_num,
+      metric        = metric_name,
+      row            = row_id,
+      column         = as.integer(col_ids),
+      value          = values
     )
   }) %>%
     mutate(well = paste0(row, column)) %>%
-    select(file, metric, well, row, column, value)
+    select(file, timestamp, elapsed_hours, image, metric, well, row, column, value)
 
   list(data = data_df, next_idx = data_end + 1)
 }
 
 # ------------------------------------------------------------------------
-# Parse a MATRIX layout file. Handles one or more blocks. A block may be
-# preceded by a label line (metric name, e.g. "Std Err Img") - if so that
-# label is used as the metric; otherwise the top-level "Metric:" metadata
-# field is used.
+# Parse a MATRIX layout file. Handles one or more "Time Stamp:" blocks
+# (multiple timepoints per file), each containing one or more grids.
 #
-# Multi-image blocks (label starting with "Image ") are NOT supported yet
-# and are skipped, with the label recorded in unsupported_labels; see
-# skip_on_unsupported in read_confluency_folder() for how the caller is
-# prompted.
+# Within a timepoint block, a grid may be preceded by a label line:
+#   - "Image N" (e.g. "Image 1", "Image 2")  -> longitudinal image number;
+#     recorded in the `image` column. Metric is taken from the top-level
+#     "Metric:" field (multi-image exports label images, not metrics).
+#   - anything else (e.g. "Std Err Img")     -> used as the metric name.
+#   - no label line                          -> top-level "Metric:" field
+#     is used as the metric name, image left NA.
+#
+# If a timepoint block contains only a single grid (labeled "Image 1" or
+# unlabeled), `image` is left NA since there's nothing to distinguish.
 # ------------------------------------------------------------------------
 .parse_matrix <- function(lines, file_id, default_metric) {
-  ts_idx <- which(str_starts(lines, "Time Stamp:"))[1]
+  ts_positions <- which(str_starts(lines, "Time Stamp:"))
 
   blocks <- list()
-  unsupported_labels <- character(0)
 
-  idx <- ts_idx + 1
-  while (idx <= length(lines)) {
-    line <- lines[idx]
+  for (ts_idx in ts_positions) {
+    ts_flds       <- str_split(lines[ts_idx], "\t")[[1]]
+    timestamp     <- str_trim(ts_flds[2])
+    elapsed_hours <- suppressWarnings(as.numeric(str_trim(ts_flds[4])))
 
-    if (!nzchar(line)) { idx <- idx + 1; next }
+    # End of this timepoint's section = next "Time Stamp:" line, or EOF
+    next_ts <- ts_positions[ts_positions > ts_idx][1]
+    section_end <- if (is.na(next_ts)) length(lines) else next_ts - 1
 
-    # A grid header line looks like "\t1\t2\t...\t12" (starts with tab)
-    if (str_starts(line, "\t")) {
-      block <- .parse_matrix_block(lines, idx, file_id, default_metric)
-      blocks[[length(blocks) + 1]] <- block$data
-      idx <- block$next_idx
-      next
-    }
+    idx <- ts_idx + 1
+    tp_blocks <- list()   # blocks within this timepoint, to fix up `image` after the fact
 
-    # Otherwise this is a label line for the following block
-    label <- str_trim(line)
-    grid_header_idx <- idx + 1
-    if (grid_header_idx > length(lines) || !str_starts(lines[grid_header_idx], "\t")) {
-      # Not actually followed by a grid - skip this stray line
-      idx <- idx + 1
-      next
-    }
+    while (idx <= section_end) {
+      line <- lines[idx]
 
-    if (str_starts(label, "Image ")) {
-      unsupported_labels <- c(unsupported_labels, label)
-      # Skip over this block's data without parsing it
-      skip_idx <- grid_header_idx + 1
-      while (skip_idx <= length(lines) && nzchar(lines[skip_idx]) &&
-             str_detect(lines[skip_idx], "^[A-Za-z]\t")) {
-        skip_idx <- skip_idx + 1
+      if (!nzchar(line)) { idx <- idx + 1; next }
+
+      # A grid header line looks like "\t1\t2\t...\t12" (starts with tab)
+      if (str_starts(line, "\t")) {
+        block <- .parse_matrix_block(lines, idx, file_id, default_metric,
+                                      timestamp, elapsed_hours, image_num = NA_integer_)
+        tp_blocks[[length(tp_blocks) + 1]] <- block$data
+        idx <- block$next_idx
+        next
       }
-      idx <- skip_idx
-      next
+
+      # Otherwise this is a label line for the following grid
+      label <- str_trim(line)
+      grid_header_idx <- idx + 1
+      if (grid_header_idx > section_end || !str_starts(lines[grid_header_idx], "\t")) {
+        # Not actually followed by a grid - skip this stray line
+        idx <- idx + 1
+        next
+      }
+
+      if (str_detect(label, "^Image\\s+\\d+$")) {
+        image_num <- as.integer(str_extract(label, "\\d+$"))
+        block <- .parse_matrix_block(lines, grid_header_idx, file_id, default_metric,
+                                      timestamp, elapsed_hours, image_num = image_num)
+      } else {
+        block <- .parse_matrix_block(lines, grid_header_idx, file_id, label,
+                                      timestamp, elapsed_hours, image_num = NA_integer_)
+      }
+      tp_blocks[[length(tp_blocks) + 1]] <- block$data
+      idx <- block$next_idx
     }
 
-    block <- .parse_matrix_block(lines, grid_header_idx, file_id, label)
-    blocks[[length(blocks) + 1]] <- block$data
-    idx <- block$next_idx
+    # If only one image-labeled grid exists for this timepoint (e.g. only
+    # "Image 1"), there's nothing to distinguish - drop the image number.
+    n_images <- length(unique(na.omit(map_dbl(tp_blocks, function(d) {
+      if (nrow(d) == 0) return(NA_real_)
+      unique(d$image)[1]
+    }))))
+    if (n_images <= 1) {
+      tp_blocks <- lapply(tp_blocks, function(d) { d$image <- NA_integer_; d })
+    }
+
+    blocks <- c(blocks, tp_blocks)
   }
 
   list(
-    data = if (length(blocks) > 0) bind_rows(blocks) else NULL,
-    unsupported_labels = unsupported_labels
+    data = if (length(blocks) > 0) bind_rows(blocks) else NULL
   )
 }
 
 # ------------------------------------------------------------------------
-# Parse a single confluence export file. Returns list(data, metadata,
-# unsupported_labels). `data` is NULL if the file contained ONLY
-# unsupported blocks (e.g. a pure multi-image export).
+# Parse a single confluence export file. Returns list(data, metadata).
+#
+# `timestamp` / `elapsed_hours` are recorded per-row in `data` (since a
+# file may contain multiple timepoints), not just in file-level metadata.
+# For matrix files with a single timepoint, and for wide-row files, the
+# timepoint is additionally echoed into `metadata` for convenience/back-
+# compatibility. Matrix files with multiple timepoints instead record a
+# "Time Stamp Count" metadata field, since a single Time Stamp/Elapsed
+# metadata pair would no longer be representative.
 # ------------------------------------------------------------------------
 parse_confluency_file <- function(filepath) {
 
@@ -244,8 +288,6 @@ parse_confluency_file <- function(filepath) {
 
   layout <- .detect_layout(lines)
 
-  unsupported_labels <- character(0)
-
   if (layout == "wide_row") {
     ts_idx <- which(str_starts(lines, "Date Time\tElapsed"))[1] + 1
     ts_flds <- str_split(lines[ts_idx], "\t")[[1]]
@@ -255,15 +297,20 @@ parse_confluency_file <- function(filepath) {
     data_df <- .parse_wide_row(lines, file_id, default_metric)
 
   } else if (layout == "matrix") {
-    ts_idx  <- which(str_starts(lines, "Time Stamp:"))[1]
-    ts_flds <- str_split(lines[ts_idx], "\t")[[1]]
-    # Expected: "Time Stamp:", "<datetime>", "Elapsed:", "<n>", "hours"
-    meta_keys   <- c(meta_keys, "Time Stamp", "Elapsed (hours)")
-    meta_values <- c(meta_values, str_trim(ts_flds[2]), str_trim(ts_flds[4]))
+    ts_positions <- which(str_starts(lines, "Time Stamp:"))
 
-    parsed <- .parse_matrix(lines, file_id, default_metric)
+    if (length(ts_positions) == 1) {
+      ts_flds <- str_split(lines[ts_positions], "\t")[[1]]
+      # Expected: "Time Stamp:", "<datetime>", "Elapsed:", "<n>", "hours"
+      meta_keys   <- c(meta_keys, "Time Stamp", "Elapsed (hours)")
+      meta_values <- c(meta_values, str_trim(ts_flds[2]), str_trim(ts_flds[4]))
+    } else {
+      meta_keys   <- c(meta_keys, "Time Stamp Count")
+      meta_values <- c(meta_values, as.character(length(ts_positions)))
+    }
+
+    parsed  <- .parse_matrix(lines, file_id, default_metric)
     data_df <- parsed$data
-    unsupported_labels <- parsed$unsupported_labels
 
   } else {
     stop("Unrecognized file layout in '", file_id,
@@ -276,11 +323,11 @@ parse_confluency_file <- function(filepath) {
   if (!is.null(data_df)) {
     data_df <- data_df %>%
       mutate(row = factor(row, levels = LETTERS[1:26])) %>%
-      arrange(metric, row, column) %>%
+      arrange(timestamp, image, metric, row, column) %>%
       mutate(row = as.character(row))
   }
 
-  list(data = data_df, metadata = metadata_df, unsupported_labels = unsupported_labels)
+  list(data = data_df, metadata = metadata_df)
 }
 
 # ------------------------------------------------------------------------
@@ -301,20 +348,10 @@ parse_confluency_file <- function(filepath) {
 # out_dir  : folder to write to when export = TRUE. Ignored otherwise.
 # xlsx     : passed through to write_confluency_output() when export = TRUE
 #            - FALSE writes csv files, TRUE writes a single xlsx workbook.
-# skip_on_unsupported : TRUE/FALSE/NA (default NA). Controls behaviour when a
-#            file contains unsupported multi-image blocks (labeled
-#            "Image 1", "Image 2", ...) - not yet supported by this parser.
-#              NA    -> interactively ask the user whether to skip the file
-#                       and continue (only in an interactive session; falls
-#                       back to erroring if non-interactive).
-#              TRUE  -> silently skip such blocks (or whole files, if that's
-#                       all they contain) and continue.
-#              FALSE -> stop with an error as soon as one is encountered.
 # ------------------------------------------------------------------------
 read_confluency_folder <- function(folder, depth = 0, pattern = "Plate.*\\.txt$",
                                    verbose = FALSE, progress = FALSE,
-                                   export = FALSE, out_dir = ".", xlsx = FALSE,
-                                   skip_on_unsupported = NA) {
+                                   export = FALSE, out_dir = ".", xlsx = FALSE) {
 
   if (verbose) message("Scanning '", folder, "' (depth = ", depth, ", pattern = '", pattern, "') ...")
 
@@ -330,44 +367,10 @@ read_confluency_folder <- function(folder, depth = 0, pattern = "Plate.*\\.txt$"
   if (use_bar) pb <- utils::txtProgressBar(min = 0, max = length(files), style = 3)
 
   parsed <- vector("list", length(files))
-  keep   <- rep(TRUE, length(files))
 
   for (i in seq_along(files)) {
     t0 <- Sys.time()
     res <- parse_confluency_file(files[i])
-
-    if (length(res$unsupported_labels) > 0) {
-      msg <- sprintf(
-        "%s contains unsupported multi-image block(s): %s. This format (multiple longitudinal images per plate) is not yet handled by this parser.",
-        basename(files[i]), paste(unique(res$unsupported_labels), collapse = ", ")
-      )
-
-      do_skip <- isTRUE(skip_on_unsupported)
-
-      if (is.na(skip_on_unsupported)) {
-        if (interactive()) {
-          ans <- readline(paste0(msg, "\nSkip this file and continue? [y/n]: "))
-          do_skip <- tolower(str_trim(ans)) %in% c("y", "yes")
-          if (!do_skip) stop(msg, " Aborting as requested.")
-        } else {
-          stop(msg, " Set skip_on_unsupported = TRUE to skip such files automatically.")
-        }
-      } else if (isFALSE(skip_on_unsupported)) {
-        stop(msg)
-      }
-
-      if (do_skip) {
-        warning(msg, " Skipping.", call. = FALSE)
-        if (is.null(res$data)) {
-          keep[i] <- FALSE
-          if (verbose) message(sprintf("  [%d/%d] %s - skipped (unsupported format only)", i, length(files), basename(files[i])))
-          if (use_bar) utils::setTxtProgressBar(pb, i)
-          next
-        }
-        # file had a mix of supported + unsupported blocks - keep the supported data
-      }
-    }
-
     parsed[[i]] <- res
 
     if (verbose) {
@@ -384,20 +387,18 @@ read_confluency_folder <- function(folder, depth = 0, pattern = "Plate.*\\.txt$"
 
   if (use_bar) close(pb)
 
-  parsed <- parsed[keep]
-
   data_df     <- map_dfr(parsed, "data")
   metadata_df <- map_dfr(parsed, "metadata")
 
   # Order wells A1, A2, ... A12, B1, ... for readability
   data_df <- data_df %>%
     mutate(row = factor(row, levels = LETTERS[1:26])) %>%
-    arrange(file, metric, row, column) %>%
+    arrange(file, timestamp, image, metric, row, column) %>%
     mutate(row = as.character(row))
 
   if (verbose) {
     message(sprintf("Done. %d files -> %d row(s) total (%d NA value(s)).",
-                    sum(keep), nrow(data_df), sum(is.na(data_df$value))))
+                    length(files), nrow(data_df), sum(is.na(data_df$value))))
   }
 
   result <- list(data = data_df, metadata = metadata_df)
@@ -447,21 +448,22 @@ write_confluency_output <- function(result, out_dir = ".", xlsx = FALSE, verbose
 # ------------------------------------------------------------------------
 # result <- read_confluency_folder("uploads", depth = 0, pattern = "Plate.*\\.txt$",
 #                                   verbose = TRUE, progress = FALSE)
-# result$data      # columns: file, metric, well, row, column, value
+# result$data      # columns: file, timestamp, elapsed_hours, image, metric,
+#                   #          well, row, column, value
 # result$metadata  # columns: file, key, value
 #
-# # Files with unsupported multi-image blocks: by default you'll be asked
-# # interactively whether to skip them. To automate (e.g. in a script/batch
-# # job), set skip_on_unsupported = TRUE to skip automatically, or FALSE to
-# # error out immediately instead.
-# result <- read_confluency_folder("uploads", skip_on_unsupported = TRUE, verbose = TRUE)
+# # `image` is NA unless the file has multiple longitudinal images per
+# # timepoint (e.g. "Image 1", "Image 2" grids) - filter to one if needed:
+# result$data %>% filter(file == "Plate4.txt", image == 1 | is.na(image))
 #
 # # Metadata is long-format (file, key, value); widen it if you want one row per file:
 # result$metadata %>% tidyr::pivot_wider(names_from = key, values_from = value)
 #
 # # data has row/column split out too, handy for plate heatmaps. Filter to a
-# # single metric first if a file has multiple (e.g. confluence vs std err):
-# result$data %>% filter(file == "Plate1.txt", metric == "Phase Object Confluence (%)") %>%
+# # single metric/timepoint/image first if a file has multiple:
+# result$data %>%
+#   filter(file == "Plate1.txt", metric == "Phase Object Confluence (%)",
+#          timestamp == first(timestamp), is.na(image) | image == 1) %>%
 #   ggplot2::ggplot(ggplot2::aes(column, row, fill = value)) + ggplot2::geom_tile()
 #
 # # Export to csv (default) or a single xlsx workbook (2 sheets: data, metadata):
@@ -469,5 +471,4 @@ write_confluency_output <- function(result, out_dir = ".", xlsx = FALSE, verbose
 # write_confluency_output(result, out_dir = "output", xlsx = TRUE)
 #
 # # ...or in one call via the export toggle:
-# result <- read_confluency_folder("uploads", export = TRUE, out_dir = "output",
-#                                   xlsx = TRUE, skip_on_unsupported = TRUE)
+# result <- read_confluency_folder("uploads", export = TRUE, out_dir = "output", xlsx = TRUE)
