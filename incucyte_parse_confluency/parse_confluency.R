@@ -3,10 +3,14 @@
 #
 # Parses IncuCyte/HuMEE-style plate confluence export .txt files into two
 # tidy data frames:
-#   - data:     file, timestamp, elapsed_hours, image, metric, well, row,
-#               column, value  (one row per well per metric per image per
-#               timepoint)
-#   - metadata: file, key, value                        (long format)
+#   - data:     file, file_path, timestamp, elapsed_hours, image, metric,
+#               well, row, column, value  (one row per well per metric per
+#               image per timepoint)
+#   - metadata: file, file_path, key, value             (long format)
+#
+#   `file` is just the filename (handy for grouping/display); `file_path`
+#   is the full path as passed to read_confluency_folder(), so a row can be
+#   traced back to the exact file on disk for manual checking.
 #
 # Supports two export layouts, auto-detected per file:
 #
@@ -99,7 +103,7 @@ list_files_depth <- function(path, depth = 0, pattern = "\\.txt$") {
 # per timepoint). Handles multiple timepoint rows if present, recording
 # each row's own Date Time / Elapsed as timestamp / elapsed_hours.
 # ------------------------------------------------------------------------
-.parse_wide_row <- function(lines, file_id, metric_name) {
+.parse_wide_row <- function(lines, file_id, file_path, metric_name) {
   header_idx <- which(str_starts(lines, "Date Time\tElapsed"))[1]
   well_ids   <- str_split(lines[header_idx], "\t")[[1]][-(1:2)]
 
@@ -115,6 +119,7 @@ list_files_depth <- function(path, depth = 0, pattern = "\\.txt$") {
     values <- as.numeric(flds[-(1:2)])
     tibble(
       file          = file_id,
+      file_path     = file_path,
       timestamp     = str_trim(flds[1]),
       elapsed_hours = suppressWarnings(as.numeric(str_trim(flds[2]))),
       image         = NA_integer_,
@@ -127,7 +132,7 @@ list_files_depth <- function(path, depth = 0, pattern = "\\.txt$") {
       row    = str_extract(well, "^[A-Za-z]+"),
       column = as.integer(str_extract(well, "\\d+$"))
     ) %>%
-    select(file, timestamp, elapsed_hours, image, metric, well, row, column, value)
+    select(file, file_path, timestamp, elapsed_hours, image, metric, well, row, column, value)
 
   data_df
 }
@@ -139,7 +144,7 @@ list_files_depth <- function(path, depth = 0, pattern = "\\.txt$") {
 # `elapsed_hours` tag which Time Stamp block this grid belongs to. Returns
 # list(data = <df rows A-H>, next_idx = <line after the block>).
 # ------------------------------------------------------------------------
-.parse_matrix_block <- function(lines, header_idx, file_id, metric_name,
+.parse_matrix_block <- function(lines, header_idx, file_id, file_path, metric_name,
                                  timestamp, elapsed_hours, image_num = NA_integer_) {
   col_ids <- str_split(lines[header_idx], "\t")[[1]]
   col_ids <- col_ids[nzchar(col_ids)]
@@ -160,6 +165,7 @@ list_files_depth <- function(path, depth = 0, pattern = "\\.txt$") {
     values <- as.numeric(flds[-1])
     tibble(
       file          = file_id,
+      file_path     = file_path,
       timestamp     = timestamp,
       elapsed_hours = elapsed_hours,
       image         = image_num,
@@ -170,7 +176,7 @@ list_files_depth <- function(path, depth = 0, pattern = "\\.txt$") {
     )
   }) %>%
     mutate(well = paste0(row, column)) %>%
-    select(file, timestamp, elapsed_hours, image, metric, well, row, column, value)
+    select(file, file_path, timestamp, elapsed_hours, image, metric, well, row, column, value)
 
   list(data = data_df, next_idx = data_end + 1)
 }
@@ -190,7 +196,7 @@ list_files_depth <- function(path, depth = 0, pattern = "\\.txt$") {
 # If a timepoint block contains only a single grid (labeled "Image 1" or
 # unlabeled), `image` is left NA since there's nothing to distinguish.
 # ------------------------------------------------------------------------
-.parse_matrix <- function(lines, file_id, default_metric) {
+.parse_matrix <- function(lines, file_id, file_path, default_metric) {
   ts_positions <- which(str_starts(lines, "Time Stamp:"))
 
   blocks <- list()
@@ -214,7 +220,7 @@ list_files_depth <- function(path, depth = 0, pattern = "\\.txt$") {
 
       # A grid header line looks like "\t1\t2\t...\t12" (starts with tab)
       if (str_starts(line, "\t")) {
-        block <- .parse_matrix_block(lines, idx, file_id, default_metric,
+        block <- .parse_matrix_block(lines, idx, file_id, file_path, default_metric,
                                       timestamp, elapsed_hours, image_num = NA_integer_)
         tp_blocks[[length(tp_blocks) + 1]] <- block$data
         idx <- block$next_idx
@@ -232,10 +238,10 @@ list_files_depth <- function(path, depth = 0, pattern = "\\.txt$") {
 
       if (str_detect(label, "^Image\\s+\\d+$")) {
         image_num <- as.integer(str_extract(label, "\\d+$"))
-        block <- .parse_matrix_block(lines, grid_header_idx, file_id, default_metric,
+        block <- .parse_matrix_block(lines, grid_header_idx, file_id, file_path, default_metric,
                                       timestamp, elapsed_hours, image_num = image_num)
       } else {
-        block <- .parse_matrix_block(lines, grid_header_idx, file_id, label,
+        block <- .parse_matrix_block(lines, grid_header_idx, file_id, file_path, label,
                                       timestamp, elapsed_hours, image_num = NA_integer_)
       }
       tp_blocks[[length(tp_blocks) + 1]] <- block$data
@@ -276,7 +282,8 @@ parse_confluency_file <- function(filepath) {
   lines <- readLines(filepath, warn = FALSE)
   lines <- str_remove(lines, "\r$")   # strip stray CR if present
 
-  file_id <- basename(filepath)
+  file_id   <- basename(filepath)
+  file_path <- filepath
 
   meta <- .parse_meta_block(lines)
   meta_keys   <- meta$keys
@@ -294,7 +301,7 @@ parse_confluency_file <- function(filepath) {
     meta_keys   <- c(meta_keys, "Time Stamp", "Elapsed (hours)")
     meta_values <- c(meta_values, str_trim(ts_flds[1]), str_trim(ts_flds[2]))
 
-    data_df <- .parse_wide_row(lines, file_id, default_metric)
+    data_df <- .parse_wide_row(lines, file_id, file_path, default_metric)
 
   } else if (layout == "matrix") {
     ts_positions <- which(str_starts(lines, "Time Stamp:"))
@@ -309,7 +316,7 @@ parse_confluency_file <- function(filepath) {
       meta_values <- c(meta_values, as.character(length(ts_positions)))
     }
 
-    parsed  <- .parse_matrix(lines, file_id, default_metric)
+    parsed  <- .parse_matrix(lines, file_id, file_path, default_metric)
     data_df <- parsed$data
 
   } else {
@@ -318,7 +325,7 @@ parse_confluency_file <- function(filepath) {
          "'Time Stamp:' line (matrix layout).")
   }
 
-  metadata_df <- tibble(file = file_id, key = meta_keys, value = meta_values)
+  metadata_df <- tibble(file = file_id, file_path = file_path, key = meta_keys, value = meta_values)
 
   if (!is.null(data_df)) {
     data_df <- data_df %>%
@@ -448,9 +455,9 @@ write_confluency_output <- function(result, out_dir = ".", xlsx = FALSE, verbose
 # ------------------------------------------------------------------------
 # result <- read_confluency_folder("uploads", depth = 0, pattern = "Plate.*\\.txt$",
 #                                   verbose = TRUE, progress = FALSE)
-# result$data      # columns: file, timestamp, elapsed_hours, image, metric,
-#                   #          well, row, column, value
-# result$metadata  # columns: file, key, value
+# result$data      # columns: file, file_path, timestamp, elapsed_hours,
+#                   #          image, metric, well, row, column, value
+# result$metadata  # columns: file, file_path, key, value
 #
 # # `image` is NA unless the file has multiple longitudinal images per
 # # timepoint (e.g. "Image 1", "Image 2" grids) - filter to one if needed:

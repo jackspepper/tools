@@ -72,8 +72,8 @@ result <- read_confluency_folder(
   xlsx    = FALSE                 # FALSE = csv, TRUE = single xlsx workbook
 )
 
-result$data      # file, timestamp, elapsed_hours, image, metric, well, row, column, value
-result$metadata  # file, key, value  (long format, one row per field)
+result$data      # file, file_path, timestamp, elapsed_hours, image, metric, well, row, column, value
+result$metadata  # file, file_path, key, value  (long format, one row per field)
 ```
 
 Export can also be run separately on an existing result:
@@ -92,6 +92,7 @@ write_confluency_output(result, out_dir = "output", xlsx = TRUE)
 | column          | meaning                                                                 |
 |-----------------|--------------------------------------------------------------------------|
 | `file`          | source filename                                                          |
+| `file_path`     | full path to the source file (absolute, as scanned), for tracing a row back to the exact file on disk |
 | `timestamp`     | this row's timepoint (Date/Time as read from the export)                 |
 | `elapsed_hours` | elapsed hours for that timepoint                                         |
 | `image`         | image number, for longitudinal/multi-image exports; `NA` if the file only has a single image per well/timepoint |
