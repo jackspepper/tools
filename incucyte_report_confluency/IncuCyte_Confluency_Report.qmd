@@ -1,0 +1,406 @@
+---
+title: "IncuCyte Confluency Report"
+subtitle: "Per-plate summary and heatmaps"
+date: today
+format:
+  html:
+    toc: true
+    embed-resources: true
+    df-print: paged
+    code-fold: true
+    code-summary: "Show code"
+---
+
+```{css sticky-header, echo=FALSE}
+.table-scroll-sticky thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: #CCCCCC;
+}
+```
+
+```{r setup}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(here)
+
+# --- Data location ---------------------------------------------------------
+# Root folder to search for IncuCyte export files (see `depth` in Parse data,
+# below, for how far under this folder the search recurses).
+data_dir <- here("..")
+
+# --- parse_confluency.R -----------------------------------------------------
+# Caches a local copy on first run so the report doesn't re-fetch on every 
+# render; delete to force a re-download of the latest version.
+script_path <- here("R", "parse_confluency.R")
+script_url  <- "https://raw.githubusercontent.com/jackspepper/tools/main/incucyte_parse_confluency/parse_confluency.R"
+
+if (!file.exists(script_path)) {
+  dir.create(here("R"), showWarnings = FALSE)
+  download.file(script_url, script_path, mode = "wb")
+}
+source(script_path, echo = FALSE)
+
+# --- Output ------------------------------------------------------------------
+out_dir <- here("output")
+dir.create(out_dir, showWarnings = FALSE)
+
+# Standard styled + scrollable kable, with a pinned header row.
+# height: max box height before scrolling kicks in.
+scrolly_kable <- function(tbl, height = "500px", ...) {
+  kable(tbl, ...) |>
+    kable_styling(
+      bootstrap_options = c("striped", "hover", "condensed"),
+      full_width = FALSE,
+      position = "center",
+      font_size = 14
+    ) |>
+    row_spec(0, bold = TRUE, background = "#CCCCCC") |>
+    scroll_box(height = height, width = "100%") |>
+    gsub('class="table table-striped', 'class="table-scroll-sticky table table-striped', x = _, fixed = TRUE)
+}
+```
+
+This report parses IncuCyte confluency exports into a tidy table, then summarises, flags, and visualises well-level confluence. Adjust **Study configuration** and **Exclusions** below to fit a given run — the rest of the report updates automatically.
+
+## Parse data
+
+```{r parse}
+result <- read_confluency_folder(
+  data_dir,
+  depth = 5,
+  pattern = "Plate.*\\.txt$",
+  verbose = TRUE,
+  progress = TRUE,
+  export = TRUE
+)
+
+data <- result$data |>
+  mutate(
+    date          = str_extract(file_path, "\\d{8}(?=_)"),
+    plate         = str_extract(file_path, "Plate\\d+"),
+    imaging_date  = str_extract(file_path, "(?<=_Imaged)\\d{2}[A-Z]{3}\\d{4}"),
+    imaging_type  = str_extract(file_path, "(?<=_)[A-Za-z]+(?=\\.txt$|/)")
+  )
+
+well_digits <- max(nchar(as.character(data$column)))
+data <- data |>
+  mutate(well = paste0(row, formatC(column, width = well_digits, flag = "0")))
+
+write_confluency_output(result, out_dir = out_dir)
+```
+
+`imaging_date` and `imaging_type` are parsed from the folder segment following the plate date, e.g. `20260720_Imaged27JUL2026_Prefix` → imaging date `20JUL2026`, type `Prefix`. Plates sharing the same initial `date` are the same set; `imaging_type` distinguishes imaging rounds within that set. Both are `NA` where the pattern isn't present in the path, and rows are kept regardless.
+
+Rows and columns below auto-detect from the data (no hardcoded 8×12/96-well assumption), so 6-, 24-, 96-, or 384-well plates all work without editing the report. If a plate is mid-imaging or missing wells, its row/column range in the heatmaps reflects whatever is present, not the full nominal plate.
+
+## Study configuration
+
+Settings that vary by study — edit these, then run the rest of the report unchanged.
+
+```{r stage-config}
+# Assay stages present in this study, earliest -> latest. Drives the stage
+# comparison section below; stage names not listed here are excluded from
+# that section only (they still appear in the summary/heatmaps above).
+# e.g. c("Baseline", "Endpoint") or c("Prefix", "Postfix", "Preassay", "Postassay")
+stage_levels <- c("Prefix", "Postfix", "Preassay")
+
+# Metric the stage comparison section focuses on. Must match a value in the
+# `metric` column exactly (see Per-plate summary for available values).
+# Set to NA to include all metrics in the comparison section instead.
+primary_metric <- "Phase Object Confluence (%)"
+
+# Acceptable confluence range, used for well flagging and the heatmap colour
+# scales below. Adjust to your assay's expected range.
+range_lower <- 80
+range_upper <- 100
+```
+
+## Exclusions
+
+Set any of these vectors to exclude specific dates, plates, metrics, or wells from the entire report (summary, flags, and both heatmaps). Leave a vector as `character(0)` to exclude nothing for that field.
+
+```{r exclusions}
+exclude_dates         <- character(0)  # e.g. c("20260712")
+exclude_plates        <- character(0)  # e.g. c("Plate3")
+exclude_metrics       <- character(0)  # e.g. c("Phase Object Confluence (%)")
+exclude_wells         <- character(0)  # e.g. c("A01", "H12")
+exclude_imaging_dates <- character(0)  # e.g. c("20JUL2026")
+exclude_imaging_types <- character(0)  # e.g. c("Preassay")
+
+data <- data |>
+  filter(
+    !date          %in% exclude_dates,
+    !plate         %in% exclude_plates,
+    !metric        %in% exclude_metrics,
+    !well          %in% exclude_wells,
+    !imaging_date  %in% exclude_imaging_dates,
+    !imaging_type  %in% exclude_imaging_types
+  )
+```
+
+## Summaries
+
+### Per-date-group summary
+
+Standard descriptive stats per date and metric.
+
+```{r date-group summary}
+summary_tbl <- data |>
+  group_by(date, imaging_date, imaging_type, metric) |>
+  summarise(
+    n      = n(),
+    mean   = mean(value, na.rm = TRUE),
+    sd     = sd(value, na.rm = TRUE),
+    min    = min(value, na.rm = TRUE),
+    max    = max(value, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(date, imaging_date, imaging_type, metric)
+
+scrolly_kable(summary_tbl, digits = 2)
+```
+
+### Per-plate summary
+
+Standard descriptive stats per plate, date, and metric.
+
+```{r plate summary}
+summary_tbl <- data |>
+  group_by(date, plate, imaging_date, imaging_type, metric) |>
+  summarise(
+    n      = n(),
+    mean   = mean(value, na.rm = TRUE),
+    sd     = sd(value, na.rm = TRUE),
+    min    = min(value, na.rm = TRUE),
+    max    = max(value, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(date, plate, imaging_date, imaging_type, metric)
+
+scrolly_kable(summary_tbl, digits = 2)
+```
+
+## Flagged wells
+
+Wells outside the expected confluence range are flagged below. Range is set in Study configuration (`range_lower` / `range_upper`).
+
+```{r flag-range}
+data <- data |>
+  mutate(flagged = value < range_lower | value > range_upper)
+
+flagged_tbl <- data |>
+  filter(flagged) |>
+  select(date, plate, imaging_date, imaging_type, well, metric, value) |>
+  arrange(date, plate, imaging_date, imaging_type, well)
+```
+
+```{r flag-table}
+if (nrow(flagged_tbl) == 0) {
+  cat("No wells fell outside the range", range_lower, "-", range_upper, "%.\n")
+} else {
+  scrolly_kable(flagged_tbl, digits = 2, caption = paste0("Wells outside ", range_lower, "-", range_upper, "%"))
+}
+```
+
+## Plate heatmaps
+
+Well-level confluence by plate, date, and imaging type. Colour scale is fixed to `r range_lower`–`r range_upper`% (squished, from Study configuration) — wells outside this range are clipped to the scale's extremes rather than stretching it.
+
+```{r heatmap, fig.width=12, fig.height=6}
+plot_columns <- sort(unique(data$column))
+
+date_type_levels <- data |>
+  distinct(date, imaging_type) |>
+  mutate(
+    stage_rank = match(imaging_type, stage_levels),
+    stage_rank = ifelse(is.na(stage_rank), length(stage_levels) + 1, stage_rank),
+    date_type = paste0(date, ifelse(is.na(imaging_type), "", paste0(" (", imaging_type, ")")))
+  ) |>
+  arrange(date, stage_rank, imaging_type) |>
+  pull(date_type) |>
+  unique()
+
+plot <- data |>
+  mutate(
+    row      = factor(row, levels = rev(sort(unique(row)))),  # A at top
+    date_type = paste0(date, ifelse(is.na(imaging_type), "", paste0(" (", imaging_type, ")"))),
+    date_type = factor(date_type, levels = date_type_levels)
+  ) |>
+  ggplot(aes(x = column, y = row, fill = value)) +
+  geom_tile(color = "white") +
+  coord_equal() +
+  scale_x_continuous(breaks = plot_columns) +
+  facet_grid(date_type ~ plate, labeller = labeller(date_type = label_wrap_gen(width = 8))) +
+  labs(
+    x = "Column",
+    y = "Row",
+    fill = "Confluence (%)"
+  ) +
+  theme_minimal() +
+  theme(strip.text.x = element_text(size = 9)) +
+  scale_fill_viridis_c(
+    limits = c(range_lower, range_upper),
+    oob = scales::squish
+  )
+
+plot
+
+ggsave(file.path(out_dir, "PlateConfluencyHeatmap.png"), plot, width = 12, height = 6, units = "cm", dpi = 600, scale = 4)
+```
+
+## Flagged wells heatmap
+
+Same layout as above, but flagged wells (outside `r range_lower`-`r range_upper`%) are highlighted in red; all other wells are shown in grey for context.
+
+```{r flag-heatmap, fig.width=12, fig.height=6}
+flag_plot <- data |>
+  mutate(
+    row      = factor(row, levels = rev(sort(unique(row)))),
+    date_type = paste0(date, ifelse(is.na(imaging_type), "", paste0(" (", imaging_type, ")"))),
+    date_type = factor(date_type, levels = date_type_levels)
+  ) |>
+  ggplot(aes(x = column, y = row, fill = flagged)) +
+  geom_tile(color = "white") +
+  coord_equal() +
+  scale_x_continuous(breaks = plot_columns) +
+  facet_grid(date_type ~ plate, labeller = labeller(date_type = label_wrap_gen(width = 8))) +
+  labs(
+    x = "Column",
+    y = "Row",
+    fill = paste0("Outside ", range_lower, "-", range_upper, "%")
+  ) +
+  theme_minimal() +
+  theme(strip.text.x = element_text(size = 9)) +
+  scale_fill_manual(values = c(`FALSE` = "grey85", `TRUE` = "red"))
+
+flag_plot
+
+ggsave(file.path(out_dir, "PlateFlaggedWellsHeatmap.png"), flag_plot, width = 12, height = 6, units = "cm", dpi = 600, scale = 4)
+```
+
+## Assay stage comparison
+
+Compares confluence across the assay stages defined in `stage_levels` (Study configuration, above) to track how each well changes between prep and use. Only stage pairs actually present for a given well/date/plate/metric are compared — missing images are skipped rather than treated as zero or NA-flagged. Any `imaging_type` values not listed in `stage_levels` are excluded from this section only. Focused on `r if (is.na(primary_metric)) "all metrics" else primary_metric` (set `primary_metric` in Study configuration).
+
+```{r stage-compare-wide}
+stage_input <- if (is.na(primary_metric)) {
+  data
+} else {
+  data |> filter(metric == primary_metric)
+}
+
+stage_wide <- stage_input |>
+  filter(imaging_type %in% stage_levels) |>
+  mutate(imaging_type = factor(imaging_type, levels = stage_levels)) |>
+  select(date, plate, well, row, column, metric, imaging_type, value) |>
+  pivot_wider(names_from = imaging_type, values_from = value)
+
+# Ensure a column exists for every configured stage, even if absent from the dataset
+for (col in stage_levels) {
+  if (!col %in% names(stage_wide)) stage_wide[[col]] <- NA_real_
+}
+
+# Every consecutive pair (adjacent) plus every stage vs. the first (baseline), skipping duplicates
+consecutive_pairs <- if (length(stage_levels) >= 2) {
+  purrr::map2(stage_levels[-length(stage_levels)], stage_levels[-1], c)
+} else list()
+
+baseline_pairs <- if (length(stage_levels) >= 3) {
+  purrr::map(stage_levels[-1], ~ c(stage_levels[1], .x))
+} else list()
+
+stage_pairs <- unique(c(consecutive_pairs, baseline_pairs))
+stage_pairs <- Filter(function(p) p[1] != p[2], stage_pairs)
+
+delta_names <- purrr::map_chr(stage_pairs, ~ paste(.x[2], "-", .x[1]))
+
+stage_deltas <- stage_wide
+for (i in seq_along(stage_pairs)) {
+  from_stage <- stage_pairs[[i]][1]
+  to_stage   <- stage_pairs[[i]][2]
+  stage_deltas[[delta_names[i]]] <- stage_deltas[[to_stage]] - stage_deltas[[from_stage]]
+}
+```
+
+### Per-well changes
+
+```{r stage-compare-well-table}
+well_delta_tbl <- stage_deltas |>
+  select(date, plate, well, metric, all_of(stage_levels), all_of(delta_names)) |>
+  arrange(date, plate, well, metric)
+
+scrolly_kable(well_delta_tbl, digits = 2)
+```
+
+### Per-plate summary of changes
+
+Mean/SD of each stage-to-stage delta across wells, computed only from wells where both stages in that pair are present.
+
+```{r stage-compare-plate-summary}
+delta_long <- stage_deltas |>
+  select(date, plate, well, metric, all_of(delta_names)) |>
+  pivot_longer(
+    cols = all_of(delta_names),
+    names_to = "comparison",
+    values_to = "delta"
+  ) |>
+  filter(!is.na(delta))
+
+plate_delta_summary <- delta_long |>
+  group_by(date, plate, metric, comparison) |>
+  summarise(
+    n_wells = n(),
+    mean_delta = mean(delta),
+    sd_delta   = sd(delta),
+    min_delta  = min(delta),
+    max_delta  = max(delta),
+    .groups = "drop"
+  ) |>
+  arrange(date, plate, metric, comparison)
+
+scrolly_kable(plate_delta_summary, digits = 2)
+```
+
+### Delta heatmaps
+
+Well-level change between consecutive stages present in the data, in the order defined by `stage_levels`. Diverging scale centred on 0; grey tiles indicate a pair where one or both stages are missing for that well.
+
+```{r stage-compare-heatmap, fig.width=12, fig.height=6}
+consecutive_names <- purrr::map_chr(consecutive_pairs, ~ paste(.x[2], "-", .x[1]))
+
+delta_plot_data <- delta_long |>
+  filter(comparison %in% consecutive_names) |>
+  mutate(comparison = factor(comparison, levels = consecutive_names)) |>
+  mutate(row = str_extract(well, "^[A-Z]"),
+         column = as.integer(str_extract(well, "\\d+$")),
+         row = factor(row, levels = rev(sort(unique(row)))))
+
+delta_plot <- delta_plot_data |>
+  mutate(
+    plate_label = paste0(date, " - ", comparison)
+  ) |>
+  ggplot(aes(x = column, y = row, fill = delta)) +
+  geom_tile(color = "white") +
+  coord_equal() +
+  scale_x_continuous(breaks = plot_columns) +
+  facet_grid(plate_label ~ plate, labeller = labeller(plate_label = label_wrap_gen(width = 30))) +
+  labs(x = "Column", y = "Row", fill = "\u0394 Confluence (%)") +
+  theme_minimal() +
+  theme(strip.text.x = element_text(size = 9)) +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0, na.value = "grey85")
+
+delta_plot
+
+ggsave(file.path(out_dir, "PlateStageDeltaHeatmap.png"), delta_plot, width = 12, height = 6, units = "cm", dpi = 600, scale = 4)
+```
+
+## Metadata
+
+Parsed metadata key-value pairs per source file.
+
+```{r metadata}
+scrolly_kable(result$metadata)
+```
