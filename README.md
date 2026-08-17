@@ -1,17 +1,21 @@
 # tools
 This is just a collection of tools that I have created or found useful. Some of them are standalone scripts, while others are small programs. Feel free to use them as you see fit.
+
 ## Installation
 Install the `toolfetch` package, then use it to browse and download individual tool folders as needed:
 ```
-devtools::install_github("jackspepper/tools", subdir = "toolfetch")
+install.packages("pak")
+pak::pkg_install("jackspepper/tools/toolfetch")
  
 library(toolfetch)
 tools_fetch()
 ```
+(`devtools::install_github("jackspepper/tools", subdir = "toolfetch")` also works if you'd rather not add `pak`.)
+ 
 See the [toolfetch README](./toolfetch/README.md) for full usage.
 
 ## Tools
-[toolfetch](./toolfetch) - An R package for browsing and downloading tools from this repo (see Installation above).
+[toolfetch](./toolfetch) - An R package for browsing and downloading tools from this repo (see Installation above).\
 [Incucyte Confluency Parser](./incucyte_parse_confluency.R) - A script to parse Incucyte confluency analysis data and output a tidy data frame.\
 [Incucyte Confluency Report](./incucyte_report_confluency) - A Quarto report that builds on the parser to produce per-plate/per-date summaries, well-flagging, and confluence heatmaps.\
-[96-Well Plate Editor](./plate_editor.R) - A standalone browser app to create a visualisation of 96-well plate layouts with colours and dilutions.\
+[96-Well Plate Editor](./plate_editor.R) - A standalone browser app to create a visualisation of 96-well plate layouts with colours and dilutions.
