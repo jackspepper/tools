@@ -12,7 +12,6 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Imports:
     httr2,
-    jsonlite,
     utils
 Suggests:
     testthat (>= 3.0.0)
