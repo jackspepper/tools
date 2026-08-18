@@ -1,0 +1,453 @@
+---
+title: "Microscopy Imaging Presentation"
+author: "Jack Pepper"
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = TRUE, message = TRUE)
+
+# ── Required packages ────────────────────────────────────────────────────
+required_pkgs <- c("reticulate", "magick", "stringr", "purrr", "dplyr", "tidyr", "glue", "here")
+missing_pkgs  <- required_pkgs[!vapply(required_pkgs, requireNamespace, logical(1), quietly = TRUE)]
+if (length(missing_pkgs) > 0) {
+  install.packages(missing_pkgs)
+}
+library(reticulate)
+library(stringr)
+library(purrr)
+library(dplyr)
+library(tidyr)
+library(glue)
+library(here)
+```
+
+```{r config}
+# ══════════════════════════════════════════════════════════════════════════
+# CONFIGURATION — edit this section for a new study
+# ══════════════════════════════════════════════════════════════════════════
+
+cfg <- list(
+
+  # ── Input / output paths ─────────────────────────────────────────────
+  # Folder containing the .nd2 files (flat folder, not recursive)
+  input_dir  = here("../JP20260213/"),
+
+  # Where composite TIFFs + slide PNGs are written
+  output_dir = here("output/"),
+
+  # Path to the ND2 -> composite TIFF python script
+  py_script  = here("nd2_composite.py"),
+
+  # ── Filename parsing ─────────────────────────────────────────────────
+  # The ND2 filename (without extension) is split on this delimiter...
+  filename_delim = "_",
+
+  # ...then matched against this regex. Edit the named groups if your
+  # naming convention changes — the rest of the document only refers to
+  # these group names, not their position, so reordering fields here is
+  # enough to adapt to a new format.
+  #
+  # Default format: date_Study_Type_Batch_Sample_Zinfo
+  #   e.g. 20260213_ZDNA_Optimisations_OP2_BiofilmNo1_Z1
+  #   e.g. 20260213_ZDNA_Optimisations_OP2_BiofilmNo1_Z1x40
+  #   e.g. 20260213_ZDNA_Optimisations_OP2_BiofilmAllH_S3
+  #
+  # "biofilmNo" captures whatever sample label sits in that field
+  # position (BiofilmNo1, BiofilmAllH, S3, ...) — it no longer requires
+  # the literal word "Biofilm" or a trailing number. It only needs to
+  # be unique per sample so slides group correctly. The trailing
+  # "_Zinfo" segment is entirely optional, so filenames with no Z/zoom
+  # info at all still parse (z and zoom come back as NA).
+  #
+  # Required named groups: biofilmNo, z, zoom (z and zoom may be NA)
+  # NOTE: ICU regex (used by stringr/stringi) requires capture-group names
+  # to be alphanumeric only — no underscores. Group names below are
+  # deliberately camelCase for this reason.
+  filename_pattern = paste0(
+    "^(?<date>[0-9]{6,8})_",
+    "(?<study>[^_]+)_",
+    "(?<type>[^_]+)_",
+    "(?<batch>[^_]+)_",
+    "(?<biofilmNo>[^_]+?)",
+    "(_Z(?<z>[0-9]+)(x(?<zoom>[0-9]+(\\.[0-9]+)?))?)?$"
+  ),
+
+  # Files whose stem matches this regex are excluded before parsing —
+  # e.g. single-image files (no Z-stack) marked with a trailing "_S<n>",
+  # which this pipeline can't turn into a MIP composite. Set to NULL to
+  # disable exclusion filtering entirely.
+  exclude_pattern = "_S[0-9]+$",
+
+  # ── nd2_composite.py arguments ───────────────────────────────────────
+  # Extra flags passed to every nd2_composite.py call. Edit freely
+  # (e.g. add "--scale-bar", "--channel-labels", change --suffix).
+  py_extra_args = c("--suffix", "_comp", "--lut-min", "0", "--lut-max", "4095"),
+  py_suffix     = "_comp",   # must match the --suffix value above
+
+  # Python packages this pipeline needs. reticulate::py_require()
+  # provisions an isolated environment automatically (via uv) so no
+  # manual venv/conda setup is required on any machine running this doc.
+  # "python-pptx" builds the final slide deck with precisely positioned
+  # images and captions (needed because pandoc's markdown->pptx path
+  # cannot reliably place multiple images side-by-side, or place any
+  # image inside a table cell).
+  py_packages = c("nd2", "tifffile", "numpy", "tqdm", "Pillow", "python-pptx"),
+
+  # ── Slide layout ─────────────────────────────────────────────────────
+  slide_image_width_in = 3.0,   # width per image, side-by-side layout
+  max_images_per_row    = 3,
+
+  # Output pptx path
+  pptx_path = here("Microscopy Report.pptx"),
+
+  # PowerPoint slide size (widescreen default)
+  slide_width_in  = 13.333,
+  slide_height_in = 7.5,
+
+  # Set TRUE to re-run nd2_composite.py even if a composite TIFF already
+  # exists for a given source file (useful after changing LUT/contrast
+  # settings). FALSE reuses existing outputs and is much faster.
+  force_reconvert = TRUE
+)
+```
+
+```{r derive-paths}
+dir.create(cfg$output_dir, recursive = TRUE, showWarnings = FALSE)
+tiff_dir <- file.path(cfg$output_dir, "tiff")
+png_dir  <- file.path(cfg$output_dir, "png")
+dir.create(tiff_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(png_dir,  recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r discover-files}
+nd2_files <- list.files(cfg$input_dir, pattern = "\\.nd2$", full.names = TRUE, ignore.case = TRUE)
+
+if (length(nd2_files) == 0) {
+  stop(glue("No .nd2 files found in '{cfg$input_dir}'."))
+}
+
+# ── Exclude single-image files (e.g. "_S<n>" suffix — no Z-stack) ────────
+if (!is.null(cfg$exclude_pattern)) {
+  stems      <- tools::file_path_sans_ext(basename(nd2_files))
+  is_excluded <- str_detect(stems, cfg$exclude_pattern)
+  if (any(is_excluded)) {
+    message(glue(
+      "Excluding {sum(is_excluded)} file(s) matching exclude_pattern:\n",
+      paste(basename(nd2_files[is_excluded]), collapse = "\n")
+    ))
+  }
+  nd2_files <- nd2_files[!is_excluded]
+}
+
+if (length(nd2_files) == 0) {
+  stop("All .nd2 files were excluded by exclude_pattern.")
+}
+```
+
+```{r parse-filenames}
+# ── Parse each filename against cfg$filename_pattern ─────────────────────
+parse_nd2_filename <- function(path, pattern) {
+  stem  <- tools::file_path_sans_ext(basename(path))
+  match <- stringr::str_match(stem, pattern)
+
+  if (all(is.na(match))) {
+    return(NULL)
+  }
+
+  # str_match with named groups returns a matrix whose columns are named
+  group_names <- colnames(match)
+  group_names <- group_names[group_names != "" & !is.na(group_names)]
+
+  vals <- as.list(match[1, group_names])
+  names(vals) <- group_names
+
+  vals$file <- path
+  vals$stem <- stem
+  as_tibble(vals)
+}
+
+parsed <- map(nd2_files, parse_nd2_filename, pattern = cfg$filename_pattern)
+
+unmatched <- nd2_files[map_lgl(parsed, is.null)]
+if (length(unmatched) > 0) {
+  warning(glue(
+    "{length(unmatched)} file(s) did not match filename_pattern and will be skipped:\n",
+    paste(basename(unmatched), collapse = "\n")
+  ))
+}
+
+parsed_df <- bind_rows(parsed[!map_lgl(parsed, is.null)])
+
+if (nrow(parsed_df) == 0) {
+  stop("No filenames matched the configured filename_pattern. Check cfg$filename_pattern.")
+}
+
+# Required columns check
+required_cols <- c("biofilmNo", "z")
+missing_cols  <- setdiff(required_cols, names(parsed_df))
+if (length(missing_cols) > 0) {
+  stop(glue(
+    "filename_pattern is missing required named group(s): {paste(missing_cols, collapse = ', ')}"
+  ))
+}
+if (!"zoom" %in% names(parsed_df)) {
+  parsed_df$zoom <- NA_character_
+}
+
+parsed_df <- parsed_df %>%
+  mutate(
+    z_num    = as.integer(z),
+    zoom_num = suppressWarnings(as.numeric(zoom)),
+    has_zoom = !is.na(zoom_num)
+  )
+```
+
+```{r python-setup}
+reticulate::py_require(packages = cfg$py_packages)
+
+# py_require() only *declares* requirements — nothing is actually
+# provisioned until Python is initialized. py_config() forces that
+# initialization now (via uv) and returns the resolved interpreter path,
+# which we then use explicitly in system2() calls below. This guarantees
+# nd2_composite.py runs under the same environment reticulate just set up,
+# rather than whatever unrelated "python3" happens to be on PATH.
+py_exe <- reticulate::py_config()$python
+message(glue("Using Python: {py_exe}"))
+
+# ── Fallback: verify each required package actually imports ─────────────
+# On older reticulate versions (pre ~1.41), py_require()'s automatic
+# per-project environment provisioning isn't available, and reticulate
+# silently falls back to whatever Python/venv it finds — which may not
+# have these packages installed. This checks each package imports and,
+# if not, pip-installs it directly into that same interpreter so the
+# rest of the document still works regardless of reticulate version.
+py_import_name <- function(pkg) {
+  # A handful of PyPI names differ from their importable module name.
+  overrides <- c("python-pptx" = "pptx", "Pillow" = "PIL")
+  if (pkg %in% names(overrides)) overrides[[pkg]] else pkg
+}
+
+for (pkg in cfg$py_packages) {
+  mod <- py_import_name(pkg)
+  ok  <- tryCatch({ reticulate::py_run_string(glue("import {mod}")); TRUE },
+                   error = function(e) FALSE)
+  if (!ok) {
+    message(glue("'{mod}' not importable under {py_exe} — installing '{pkg}' via pip..."))
+    result <- system2(py_exe, c("-m", "pip", "install", "--quiet", pkg),
+                       stdout = TRUE, stderr = TRUE)
+    message(paste(result, collapse = "\n"))
+    reticulate::py_run_string(glue("import {mod}"))  # re-check; errors loudly if still missing
+  }
+}
+```
+
+```{r convert-to-tiff}
+# ── Run nd2_composite.py on each source file (skips existing outputs
+#    unless cfg$force_reconvert is TRUE) ──────────────────────────────────
+
+expected_tiff_path <- function(stem) {
+  file.path(tiff_dir, paste0(stem, cfg$py_suffix, ".tiff"))
+}
+
+parsed_df <- parsed_df %>% mutate(tiff_path = expected_tiff_path(stem))
+
+to_convert <- parsed_df %>%
+  filter(cfg$force_reconvert | !file.exists(tiff_path))
+
+if (nrow(to_convert) > 0) {
+  for (f in to_convert$file) {
+    args <- c(
+      cfg$py_script,
+      f,
+      "--output", tiff_dir,
+      cfg$py_extra_args
+    )
+    message(glue("Running: {py_exe} {paste(args, collapse = ' ')}"))
+    result <- system2(py_exe, args = args, stdout = TRUE, stderr = TRUE)
+    status <- attr(result, "status")
+    message(paste(result, collapse = "\n"))
+    if (!is.null(status) && status != 0) {
+      warning(glue("nd2_composite.py failed for {basename(f)}:\n{paste(result, collapse = '\n')}"))
+    }
+  }
+}
+
+# nd2_composite.py names output "<parentname>_<stem><suffix>.tiff" when an
+# --output dir is given and the source isn't directly under that dir; since
+# our sources sit directly in cfg$input_dir this simplifies to "<stem><suffix>.tiff".
+# Re-check actual files on disk in case naming differs and fix up tiff_path.
+actual_tiffs <- list.files(tiff_dir, pattern = "\\.tiff$", full.names = TRUE)
+
+match_actual_tiff <- function(stem) {
+  hit <- actual_tiffs[str_detect(basename(actual_tiffs), fixed(stem))]
+  if (length(hit) >= 1) hit[1] else NA_character_
+}
+
+parsed_df <- parsed_df %>%
+  mutate(tiff_path = map_chr(stem, match_actual_tiff))
+
+missing_tiffs <- parsed_df %>% filter(is.na(tiff_path) | !file.exists(tiff_path))
+if (nrow(missing_tiffs) > 0) {
+  warning(glue(
+    "{nrow(missing_tiffs)} composite TIFF(s) could not be found after conversion:\n",
+    paste(missing_tiffs$stem, collapse = "\n")
+  ))
+}
+
+parsed_df <- parsed_df %>% filter(!is.na(tiff_path), file.exists(tiff_path))
+```
+
+```{r convert-to-png}
+# ── Convert composite TIFFs to PNG for embedding in the pptx ─────────────
+tiff_to_png_path <- function(tiff_path) {
+  file.path(png_dir, paste0(tools::file_path_sans_ext(basename(tiff_path)), ".png"))
+}
+
+parsed_df <- parsed_df %>% mutate(png_path = tiff_to_png_path(tiff_path))
+
+for (i in seq_len(nrow(parsed_df))) {
+  tp <- parsed_df$tiff_path[i]
+  pp <- parsed_df$png_path[i]
+  if (!file.exists(pp) || cfg$force_reconvert) {
+    img <- magick::image_read(tp)
+    magick::image_write(img, path = pp, format = "png")
+  }
+}
+```
+
+```{r pptx-builder}
+# ── PPTX builder (python-pptx) ────────────────────────────────────────────
+# Builds slides with precisely positioned images and text captions.
+# Used instead of Quarto/pandoc's markdown->pptx path, which cannot
+# reliably place multiple images side-by-side on one slide, or place any
+# image inside a table cell (both were tested and silently drop images).
+#
+# Run via reticulate::py_run_string() (not a `{python}` chunk) so this
+# stays on reticulate's Python bridge throughout — mixing Quarto's
+# Jupyter-based `{python}` engine with reticulate's `py$` object bridge
+# in the same document is unreliable.
+
+reticulate::py_run_string("
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.enum.text import PP_ALIGN
+
+
+def new_presentation(width_in, height_in):
+    prs = Presentation()
+    prs.slide_width  = Inches(width_in)
+    prs.slide_height = Inches(height_in)
+    return prs
+
+
+def add_title_slide(prs, title, subtitle=''):
+    layout = prs.slide_layouts[0]  # Title Slide
+    slide = prs.slides.add_slide(layout)
+    slide.shapes.title.text = title
+    if len(slide.placeholders) > 1:
+        slide.placeholders[1].text = subtitle
+    return slide
+
+
+def _blank_slide_with_title(prs, title):
+    layout = prs.slide_layouts[6]  # Blank
+    slide = prs.slides.add_slide(layout)
+
+    title_box = slide.shapes.add_textbox(
+        Inches(0.5), Inches(0.3), prs.slide_width - Inches(1.0), Inches(0.8)
+    )
+    tf = title_box.text_frame
+    tf.text = title
+    tf.paragraphs[0].font.size = Pt(28)
+    tf.paragraphs[0].font.bold = True
+    return slide
+
+
+def add_image_row_slide(prs, title, image_paths, image_width_in,
+                          top_in=1.4, gap_in=0.25, captions=None):
+    '''Places images left-to-right, horizontally centered as a group.
+    Optionally adds a caption text box under each image (captions must be
+    the same length as image_paths if provided).
+    '''
+    slide = _blank_slide_with_title(prs, title)
+
+    n = len(image_paths)
+    total_width = n * image_width_in + (n - 1) * gap_in
+    start_left = (prs.slide_width.inches - total_width) / 2.0
+
+    caption_height_in = 0.4 if captions else 0.0
+
+    for i, img_path in enumerate(image_paths):
+        left = Inches(start_left + i * (image_width_in + gap_in))
+        pic = slide.shapes.add_picture(
+            img_path, left, Inches(top_in), width=Inches(image_width_in)
+        )
+
+        if captions:
+            cap_top = Inches(top_in) + pic.height + Inches(0.1)
+            cap_box = slide.shapes.add_textbox(
+                left, cap_top, Inches(image_width_in), Inches(caption_height_in)
+            )
+            tf = cap_box.text_frame
+            tf.text = captions[i]
+            p = tf.paragraphs[0]
+            p.font.size = Pt(14)
+            p.alignment = PP_ALIGN.CENTER
+
+    return slide
+
+
+def save_presentation(prs, path):
+    import os
+    os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
+    prs.save(path)
+")
+```
+
+```{r generate-slides}
+# ── Build one slide per BiofilmNo (no-zoom set) and one slide per
+#    BiofilmNo covering all zoomed images together, Z1-Z3 side by side,
+#    each captioned with its own actual zoom level (zoom values may
+#    differ across Z positions on the same slide) ─────────────────────
+
+prs <- reticulate::py$new_presentation(cfg$slide_width_in, cfg$slide_height_in)
+reticulate::py$add_title_slide(prs, "Microscopy Imaging Presentation", "")
+
+biofilm_ids <- sort(unique(parsed_df$biofilmNo))
+
+for (bn in biofilm_ids) {
+
+  group <- parsed_df %>% filter(biofilmNo == bn)
+
+  # ── No-zoom slide: Z1-Z3 side by side, no captions ─────────────────
+  base_group <- group %>% filter(!has_zoom) %>% arrange(z_num)
+  if (nrow(base_group) > 0) {
+    reticulate::py$add_image_row_slide(
+      prs,
+      title           = glue("{bn}"),
+      image_paths     = as.list(base_group$png_path),
+      image_width_in  = cfg$slide_image_width_in
+    )
+  }
+
+  # ── Zoomed slide: all zoomed images together, one per Z, each
+  #    captioned with its own zoom level ─────────────────────────────
+  zoom_group <- group %>% filter(has_zoom) %>% arrange(z_num)
+  if (nrow(zoom_group) > 0) {
+    reticulate::py$add_image_row_slide(
+      prs,
+      title           = glue("{bn} — zoomed"),
+      image_paths     = as.list(zoom_group$png_path),
+      image_width_in  = cfg$slide_image_width_in,
+      captions        = as.list(glue("x{zoom_group$zoom_num} zoom"))
+    )
+  }
+}
+
+reticulate::py$save_presentation(prs, cfg$pptx_path)
+message(glue("Saved presentation: {normalizePath(cfg$pptx_path)}"))
+```
