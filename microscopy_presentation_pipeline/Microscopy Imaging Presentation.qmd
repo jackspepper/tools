@@ -11,7 +11,7 @@ execute:
 knitr::opts_chunk$set(echo = TRUE, warning = TRUE, message = TRUE)
 
 # ── Required packages ────────────────────────────────────────────────────
-required_pkgs <- c("reticulate", "magick", "stringr", "purrr", "dplyr", "tidyr", "glue", "here")
+required_pkgs <- c("reticulate", "magick", "stringr", "purrr", "dplyr", "tidyr", "glue", "here", "pak")
 missing_pkgs  <- required_pkgs[!vapply(required_pkgs, requireNamespace, logical(1), quietly = TRUE)]
 if (length(missing_pkgs) > 0) {
   install.packages(missing_pkgs)
@@ -26,8 +26,9 @@ library(here)
 ```
 
 ```{r source toolfetch and nd2_composite.py}
-install.packages("pak")
-pak::pkg_install("jackspepper/tools/toolfetch")
+if (!require("toolfetch", quietly = TRUE)) {
+  pak::pkg_install("jackspepper/tools/toolfetch")
+}
 
 toolfetch::tools_fetch("nd2_composite", subfolder = TRUE, quiet = TRUE)
 ```
