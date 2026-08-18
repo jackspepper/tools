@@ -25,6 +25,13 @@ library(glue)
 library(here)
 ```
 
+```{r source toolfetch and nd2_composite.py}
+install.packages("pak")
+pak::pkg_install("jackspepper/tools/toolfetch")
+
+toolfetch::tools_fetch("nd2_composite", subfolder = TRUE, quiet = TRUE)
+```
+
 ```{r config}
 # ══════════════════════════════════════════════════════════════════════════
 # CONFIGURATION — edit this section for a new study
@@ -40,7 +47,7 @@ cfg <- list(
   output_dir = here("output/"),
 
   # Path to the ND2 -> composite TIFF python script
-  py_script  = here("nd2_composite.py"),
+  py_script  = here("nd2_composite/nd2_composite.py"),
 
   # ── Filename parsing ─────────────────────────────────────────────────
   # The ND2 filename (without extension) is split on this delimiter...
