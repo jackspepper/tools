@@ -1,0 +1,54 @@
+# Changelog
+
+## 0.3.1-package - current
+
+### Stripping down for repo consolidation
+- Stripped out standalone github repo requirements (such as Github actions) so this can be consolidated into jackspepper/tools repo as a tool.
+- The main repo [jackspepper/qPCR-pipeline](https://github.com/jackspepper/qPCR-pipeline) shall remain private as a legacy remainder of the scripts and initial packaging.
+
+## 0.3.0-dev
+
+### R Package Refactoring
+- Converted script-based repository into an installable R package (`qpcrpipeline`).
+- Exposed core pipelines as exportable functions: `run_cleaning_pipeline()` and `run_consolidation_pipeline()`.
+- Designed pipeline functions to return directory paths to enable native R (`|>`) and `magrittr` (`%>%`) piping.
+- Added `use_qpcr_template()` to dynamically bootstrap new project folders with raw data structures and runner scripts.
+- Removed obsolete version check script (`R/get_version.R`) and replaced with standard R package versioning via `DESCRIPTION`.
+- Relocated example files to package assets (`inst/example_project/`).
+
+### GitHub & Infrastructure
+- Created standard R `.gitignore` to prevent committing local RStudio caches, packages, logs, and biological datasets.
+- Created `qPCR-pipeline.Rproj` to automatically set the working directory to the project root in RStudio.
+- Added GitHub Actions CI/CD workflow (`.github/workflows/run-tests.yml`) to build, install, and test the package on example data.
+- Added templates for Bug Reports, Feature Requests, and Pull Requests.
+
+## 0.2.1
+
+### cleaning and consolidation pipeline
+- Adjusted scripts to be accessible via source(), allowing for use in automation scripts or as standalones
+
+### qcr_pipeline.R
+- New script that allows for reproducible scripts that make variable adjustment easier without having to modify the script files themselves
+- A defaults.md file have been created to provide an easier reference for what the script defaults are when adjusting the pipeline script
+
+### get_version.R
+- Script that gets the git version of the scripts used, defaulting to the CHANGELOG.md if offline, and unknown if either 
+
+### General
+- user_guide.md is presently outdated and will need updated prior to merging with main
+
+## 0.2.0
+
+### Cleaning pipeline
+- Standards pre-check with interactive LOD override prompts
+- Sample names pre-check with Content-as-Sample fallback
+- RV_UNEXPECTED_NEG flag for always-positive targets
+- Skip-completed-plates option
+- Retry logic for network path writes
+- Run log saved to audit/
+
+### Consolidation
+- run_summary sheet with decision breakdown and sample count pivots
+- Target alias mapping (uni / univ / universal)
+- Append / overwrite / new-file prompt for existing workbooks
+- Repeat# column parsed from filename
