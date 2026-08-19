@@ -1,0 +1,7 @@
+^\.github$
+^CHANGELOG\.md$
+^docs$
+^.*\.Rproj$
+^\.Rproj\.user$
+^data-raw$
+^outputs$
