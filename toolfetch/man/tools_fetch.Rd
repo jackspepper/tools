@@ -2,20 +2,24 @@
 % Please edit documentation in R/tools_fetch.R
 \name{tools_fetch}
 \alias{tools_fetch}
-\title{Interactively pick and download a tool folder from jackspepper/tools}
+\title{Fetch (and optionally install) a tool or package folder from jackspepper/tools}
 \usage{
 tools_fetch(
   folder = NULL,
   subfolder = TRUE,
   base_dir = getwd(),
   refresh = FALSE,
+  force = FALSE,
+  install = c("ask", "auto", "never"),
+  cleanup = FALSE,
   browse = FALSE,
   quiet = FALSE
 )
 }
 \arguments{
 \item{folder}{Character. Skip the interactive menu and fetch this folder
-name directly. If \code{NULL} (default), an interactive menu is shown.}
+name directly. If \code{NULL} (default), an interactive menu is shown.
+Required for non-interactive/scripted use.}
 
 \item{subfolder}{Logical or character. If \code{TRUE} (default), files are
 placed in a new subfolder named after the tool, under \code{base_dir}
@@ -30,6 +34,27 @@ Defaults to the current working directory (\code{getwd()}).}
 \item{refresh}{Logical. Force a recheck of the repo's folder list before
 showing the menu, ignoring the weekly cache.}
 
+\item{force}{Logical. If \code{TRUE}, overwrite an existing non-empty
+destination directory (its contents are deleted first). Default \code{FALSE},
+which errors if \code{dest_dir} already exists and has files in it.}
+
+\item{install}{Character or logical. Controls installation for folders
+detected as R packages (a top-level \code{DESCRIPTION} file). One of:
+\describe{
+\item{\code{"ask"}}{(default) Prompt interactively if a package is
+detected and the session is interactive; otherwise behaves like
+\code{"never"}.}
+\item{\code{"auto"} / \code{TRUE}}{Always install detected packages via \code{pak},
+no prompt. Safe for non-interactive/scripted use.}
+\item{\code{"never"} / \code{FALSE}}{Never install, regardless of detection.}
+}}
+
+\item{cleanup}{Logical. If \code{TRUE}, delete the downloaded folder
+(\code{dest_dir}) after a package install actually runs — since the package
+is installed into the R library at that point, the downloaded source
+is no longer needed. Default \code{FALSE}. Has no effect if the folder isn't
+a package, or if it is but \code{install} doesn't end up installing it.}
+
 \item{browse}{Logical. Instead of downloading directly, open
 download-directory.github.io in the browser for the chosen folder and
 let the user download the zip manually.}
@@ -37,17 +62,31 @@ let the user download the zip manually.}
 \item{quiet}{Logical. Suppress status messages.}
 }
 \value{
-Invisibly, the path the files were written to.
+Invisibly, a list with \code{dest_dir} (path written to — or removed,
+if \code{cleanup = TRUE} and an install ran; see \code{cleaned_up}), \code{is_package}
+(logical), \code{installed} (logical, whether \code{pak} install ran), and
+\code{cleaned_up} (logical, whether \code{dest_dir} was deleted post-install).
 }
 \description{
 Lists the top-level folders in the repo (via cache, refreshed weekly or
-on demand), presents a numbered menu, and downloads the chosen folder's
-files into the current working directory.
+on demand), and downloads a chosen folder's files into the current
+working directory. Fully scriptable: pass \code{folder} (and \code{install}/\code{force}
+as needed) to run non-interactively with no prompts.
 }
 \examples{
 \dontrun{
 # Interactive menu, files placed in ./<tool_name>/
 tools_fetch()
+
+# Fully scripted: fetch a specific folder, overwrite if present,
+# auto-install if it's a package - no prompts at all
+tools_fetch("toolfetch", force = TRUE, install = "auto", quiet = TRUE)
+
+# Same, but also remove the downloaded source once installed
+# (leaves no folder behind - only the installed package remains)
+tools_fetch(
+  "toolfetch", force = TRUE, install = "auto", cleanup = TRUE, quiet = TRUE
+)
 
 # Skip the menu, fetch a specific folder as-is into the cwd
 tools_fetch("incucyte_parse_confluency", subfolder = FALSE)
