@@ -21,11 +21,11 @@ that refreshes weekly, and can be forced to recheck on demand.
 }
 
 \author{
-\strong{Maintainer}: Jack Pepper \email{jack.pepper@thekids.org.au}
+\strong{Maintainer}: Jack Pepper \email{jack@example.com}
 
 Authors:
 \itemize{
-  \item Jack Pepper \email{jack.pepper@thekids.org.au}
+  \item Jack Pepper \email{jack@example.com}
 }
 
 }

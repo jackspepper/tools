@@ -74,6 +74,21 @@ tools_fetch("mypkg", install = "auto")
 tools_fetch("mypkg", install = "never")
 ```
 
+### Cleaning up after install
+
+If you only wanted the package installed (not the downloaded source kept
+around), pass `cleanup = TRUE`. This deletes `dest_dir` after a successful
+`pak` install — the package remains installed in your R library, but the
+downloaded folder is removed:
+
+```r
+tools_fetch("mypkg", install = "auto", cleanup = TRUE)
+```
+
+`cleanup` only has an effect if the folder is a package *and* an install
+actually ran (i.e. it's ignored for plain tool folders, and ignored if
+`install = "never"` or an `"ask"` prompt was declined).
+
 ### Fully scripted / automated use
 
 For use in scripts, CI, or scheduled jobs, combine `folder`, `force`, and
@@ -83,8 +98,9 @@ For use in scripts, CI, or scheduled jobs, combine `folder`, `force`, and
 tools_fetch(
   "toolfetch",
   force   = TRUE,   # overwrite any existing download
-  install = "auto",  # install via pak if it's a package, no prompt
-  quiet   = TRUE     # suppress status messages
+  install = "auto", # install via pak if it's a package, no prompt
+  cleanup = TRUE,   # remove the downloaded source once installed
+  quiet   = TRUE    # suppress status messages
 )
 ```
 
@@ -98,9 +114,11 @@ prompt — always pass `folder` explicitly for scripted use.
 
 ```r
 list(
-  dest_dir   = "...",   # path the files were written to
+  dest_dir   = "...",   # path the files were written to (may no longer
+                         # exist on disk if cleaned_up is TRUE)
   is_package = TRUE,    # whether a top-level DESCRIPTION was found
-  installed  = TRUE     # whether pak install actually ran
+  installed  = TRUE,    # whether pak install actually ran
+  cleaned_up = TRUE     # whether dest_dir was deleted post-install
 )
 ```
 

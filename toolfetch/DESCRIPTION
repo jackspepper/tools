@@ -1,6 +1,6 @@
 Package: toolfetch
 Title: Browse and Install Tools from jackspepper/tools
-Version: 0.2.0
+Version: 0.3.0
 Authors@R: person("Jack", "Pepper", email = "jack.pepper@thekids.org.au", role = c("aut", "cre"))
 Description: Lists top-level tool folders in the jackspepper/tools GitHub
     repository, lets the user pick one interactively (or specify one

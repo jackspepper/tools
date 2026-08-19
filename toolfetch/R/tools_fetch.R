@@ -144,13 +144,20 @@ tf_install_package <- function(dest_dir, quiet = FALSE) {
 #'       no prompt. Safe for non-interactive/scripted use.}
 #'     \item{`"never"` / `FALSE`}{Never install, regardless of detection.}
 #'   }
+#' @param cleanup Logical. If `TRUE`, delete the downloaded folder
+#'   (`dest_dir`) after a package install actually runs — since the package
+#'   is installed into the R library at that point, the downloaded source
+#'   is no longer needed. Default `FALSE`. Has no effect if the folder isn't
+#'   a package, or if it is but `install` doesn't end up installing it.
 #' @param browse Logical. Instead of downloading directly, open
 #'   download-directory.github.io in the browser for the chosen folder and
 #'   let the user download the zip manually.
 #' @param quiet Logical. Suppress status messages.
 #'
-#' @return Invisibly, a list with `dest_dir` (path written to), `is_package`
-#'   (logical), and `installed` (logical, whether `pak` install ran).
+#' @return Invisibly, a list with `dest_dir` (path written to — or removed,
+#'   if `cleanup = TRUE` and an install ran; see `cleaned_up`), `is_package`
+#'   (logical), `installed` (logical, whether `pak` install ran), and
+#'   `cleaned_up` (logical, whether `dest_dir` was deleted post-install).
 #' @export
 #'
 #' @examples
@@ -161,6 +168,12 @@ tf_install_package <- function(dest_dir, quiet = FALSE) {
 #' # Fully scripted: fetch a specific folder, overwrite if present,
 #' # auto-install if it's a package - no prompts at all
 #' tools_fetch("toolfetch", force = TRUE, install = "auto", quiet = TRUE)
+#'
+#' # Same, but also remove the downloaded source once installed
+#' # (leaves no folder behind - only the installed package remains)
+#' tools_fetch(
+#'   "toolfetch", force = TRUE, install = "auto", cleanup = TRUE, quiet = TRUE
+#' )
 #'
 #' # Skip the menu, fetch a specific folder as-is into the cwd
 #' tools_fetch("incucyte_parse_confluency", subfolder = FALSE)
@@ -177,6 +190,7 @@ tools_fetch <- function(folder = NULL,
                         refresh = FALSE,
                         force = FALSE,
                         install = c("ask", "auto", "never"),
+                        cleanup = FALSE,
                         browse = FALSE,
                         quiet = FALSE) {
   if (is.logical(install)) install <- if (isTRUE(install)) "auto" else "never"
@@ -262,6 +276,7 @@ tools_fetch <- function(folder = NULL,
   if (!quiet) message("Done. '", folder, "' written to: ", result$dest_dir)
 
   installed <- FALSE
+  cleaned_up <- FALSE
   if (result$is_package) {
     do_install <- switch(
       install,
@@ -281,6 +296,12 @@ tools_fetch <- function(folder = NULL,
     if (do_install) {
       tf_install_package(result$dest_dir, quiet = quiet)
       installed <- TRUE
+
+      if (isTRUE(cleanup)) {
+        if (!quiet) message("cleanup = TRUE: removing downloaded source at ", result$dest_dir)
+        unlink(result$dest_dir, recursive = TRUE, force = TRUE)
+        cleaned_up <- TRUE
+      }
     } else if (!quiet && install != "never") {
       message(
         "'", folder, "' looks like an R package. Install it with: ",
@@ -289,5 +310,10 @@ tools_fetch <- function(folder = NULL,
     }
   }
 
-  invisible(list(dest_dir = result$dest_dir, is_package = result$is_package, installed = installed))
+  invisible(list(
+    dest_dir   = result$dest_dir,
+    is_package = result$is_package,
+    installed  = installed,
+    cleaned_up = cleaned_up
+  ))
 }

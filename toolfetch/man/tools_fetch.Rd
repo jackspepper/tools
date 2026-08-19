@@ -11,6 +11,7 @@ tools_fetch(
   refresh = FALSE,
   force = FALSE,
   install = c("ask", "auto", "never"),
+  cleanup = FALSE,
   browse = FALSE,
   quiet = FALSE
 )
@@ -48,6 +49,12 @@ no prompt. Safe for non-interactive/scripted use.}
 \item{\code{"never"} / \code{FALSE}}{Never install, regardless of detection.}
 }}
 
+\item{cleanup}{Logical. If \code{TRUE}, delete the downloaded folder
+(\code{dest_dir}) after a package install actually runs — since the package
+is installed into the R library at that point, the downloaded source
+is no longer needed. Default \code{FALSE}. Has no effect if the folder isn't
+a package, or if it is but \code{install} doesn't end up installing it.}
+
 \item{browse}{Logical. Instead of downloading directly, open
 download-directory.github.io in the browser for the chosen folder and
 let the user download the zip manually.}
@@ -55,8 +62,10 @@ let the user download the zip manually.}
 \item{quiet}{Logical. Suppress status messages.}
 }
 \value{
-Invisibly, a list with \code{dest_dir} (path written to), \code{is_package}
-(logical), and \code{installed} (logical, whether \code{pak} install ran).
+Invisibly, a list with \code{dest_dir} (path written to — or removed,
+if \code{cleanup = TRUE} and an install ran; see \code{cleaned_up}), \code{is_package}
+(logical), \code{installed} (logical, whether \code{pak} install ran), and
+\code{cleaned_up} (logical, whether \code{dest_dir} was deleted post-install).
 }
 \description{
 Lists the top-level folders in the repo (via cache, refreshed weekly or
@@ -72,6 +81,12 @@ tools_fetch()
 # Fully scripted: fetch a specific folder, overwrite if present,
 # auto-install if it's a package - no prompts at all
 tools_fetch("toolfetch", force = TRUE, install = "auto", quiet = TRUE)
+
+# Same, but also remove the downloaded source once installed
+# (leaves no folder behind - only the installed package remains)
+tools_fetch(
+  "toolfetch", force = TRUE, install = "auto", cleanup = TRUE, quiet = TRUE
+)
 
 # Skip the menu, fetch a specific folder as-is into the cwd
 tools_fetch("incucyte_parse_confluency", subfolder = FALSE)

@@ -1,3 +1,15 @@
+# toolfetch 0.3.0
+
+## New features
+
+* `tools_fetch()` gains a `cleanup` argument. If `TRUE`, the downloaded
+  folder is deleted after a package install actually runs via `pak`,
+  leaving only the installed package (no source folder left behind). Has no
+  effect for non-package folders, or if `install` doesn't end up installing
+  anything.
+* `tools_fetch()`'s return list gains `cleaned_up` (logical), indicating
+  whether `dest_dir` was removed.
+
 # toolfetch 0.2.0
 
 ## New features
