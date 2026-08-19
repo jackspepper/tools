@@ -5,7 +5,6 @@ Authors@R: person("Jack", "Pepper", email = "jack.pepper@thekids.org.au", role =
 Description: An R package for cleaning, auditing, and consolidating quantitative PCR (qPCR) data exported from CFX Maestro. Implements MIQE-aligned quality control checks, LOD classification, and target consolidation into structured Excel workbooks. Fully supports piped workflows.
 License: MIT + file LICENSE
 Encoding: UTF-8
-RoxygenNote: 8.0.0
 Depends: R (>= 4.1.0)
 Imports:
     dplyr,
@@ -24,3 +23,4 @@ Suggests:
     tibble
 Config/testthat/edition: 3
 LazyData: true
+Config/roxygen2/version: 8.1.0
