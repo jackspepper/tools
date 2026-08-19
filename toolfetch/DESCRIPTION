@@ -1,12 +1,15 @@
 Package: toolfetch
 Title: Browse and Install Tools from jackspepper/tools
-Version: 0.1.0
-Authors@R: person("Jack", "Pepper", email = "jack@example.com", role = c("aut", "cre"))
+Version: 0.2.0
+Authors@R: person("Jack", "Pepper", email = "jack.pepper@thekids.org.au", role = c("aut", "cre"))
 Description: Lists top-level tool folders in the jackspepper/tools GitHub
-    repository, lets the user pick one interactively, and downloads it into
-    the current working directory. Maintains a local cache of the repo's
-    folder listing that refreshes weekly (or on demand) so repeated calls
-    don't hit the GitHub API every time.
+    repository, lets the user pick one interactively (or specify one
+    directly for scripted use), and downloads it into the current working
+    directory. Folders detected as R packages (via a top-level DESCRIPTION
+    file) can be installed automatically via pak. Supports forced overwrite
+    of existing downloads and fully non-interactive operation. Maintains a
+    local cache of the repo's folder listing that refreshes weekly (or on
+    demand) so repeated calls don't hit the GitHub API every time.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -14,6 +17,7 @@ Imports:
     httr2,
     utils
 Suggests:
+    pak,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
-Config/roxygen2/version: 8.0.0
+Config/roxygen2/version: 8.1.0

@@ -4,9 +4,11 @@
 \alias{tf_download_folder}
 \title{Download a folder recursively via the GitHub contents API}
 \usage{
-tf_download_folder(folder_name, dest_dir, quiet = FALSE)
+tf_download_folder(folder_name, dest_dir, quiet = FALSE, force = FALSE)
 }
 \description{
-Download a folder recursively via the GitHub contents API
+Also detects whether the folder is an R package (a top-level DESCRIPTION
+file present in the collected entries) and returns that alongside the
+download path, so callers don't need a second API round-trip.
 }
 \keyword{internal}

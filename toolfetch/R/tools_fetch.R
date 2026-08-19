@@ -5,8 +5,13 @@ fs_is_absolute <- function(path) {
 }
 
 #' Download a folder recursively via the GitHub contents API
+#'
+#' Also detects whether the folder is an R package (a top-level DESCRIPTION
+#' file present in the collected entries) and returns that alongside the
+#' download path, so callers don't need a second API round-trip.
+#'
 #' @keywords internal
-tf_download_folder <- function(folder_name, dest_dir, quiet = FALSE) {
+tf_download_folder <- function(folder_name, dest_dir, quiet = FALSE, force = FALSE) {
   cfg <- tf_repo()
 
   fetch_entries <- function(path) {
@@ -49,6 +54,30 @@ tf_download_folder <- function(folder_name, dest_dir, quiet = FALSE) {
     stop("No files found in '", folder_name, "'.", call. = FALSE)
   }
 
+  # Package detection: a DESCRIPTION file sitting directly at the folder root
+  is_package <- any(vapply(
+    files,
+    function(f) identical(f$path, file.path(folder_name, "DESCRIPTION")),
+    logical(1)
+  ))
+
+  dir_exists_already <- dir.exists(dest_dir)
+  if (dir_exists_already && !force) {
+    existing <- list.files(dest_dir, recursive = TRUE, all.files = FALSE)
+    if (length(existing) > 0) {
+      stop(
+        "Destination '", dest_dir, "' already exists and is not empty. ",
+        "Use force = TRUE to overwrite.",
+        call. = FALSE
+      )
+    }
+  }
+
+  if (dir_exists_already && force) {
+    if (!quiet) message("force = TRUE: removing existing contents of ", dest_dir)
+    unlink(dest_dir, recursive = TRUE, force = TRUE)
+  }
+
   if (!dir.exists(dest_dir)) dir.create(dest_dir, recursive = TRUE)
 
   for (f in files) {
@@ -65,17 +94,33 @@ tf_download_folder <- function(folder_name, dest_dir, quiet = FALSE) {
     )
   }
 
+  list(dest_dir = dest_dir, is_package = is_package)
+}
+
+#' Install a downloaded folder as an R package via pak
+#' @keywords internal
+tf_install_package <- function(dest_dir, quiet = FALSE) {
+  if (!requireNamespace("pak", quietly = TRUE)) {
+    stop(
+      "pak is required to install packages. Install it with install.packages('pak').",
+      call. = FALSE
+    )
+  }
+  if (!quiet) message("Installing package from ", dest_dir, " via pak...")
+  pak::pkg_install(paste0("local::", dest_dir), ask = FALSE)
   invisible(dest_dir)
 }
 
-#' Interactively pick and download a tool folder from jackspepper/tools
+#' Fetch (and optionally install) a tool or package folder from jackspepper/tools
 #'
 #' Lists the top-level folders in the repo (via cache, refreshed weekly or
-#' on demand), presents a numbered menu, and downloads the chosen folder's
-#' files into the current working directory.
+#' on demand), and downloads a chosen folder's files into the current
+#' working directory. Fully scriptable: pass `folder` (and `install`/`force`
+#' as needed) to run non-interactively with no prompts.
 #'
 #' @param folder Character. Skip the interactive menu and fetch this folder
 #'   name directly. If `NULL` (default), an interactive menu is shown.
+#'   Required for non-interactive/scripted use.
 #' @param subfolder Logical or character. If `TRUE` (default), files are
 #'   placed in a new subfolder named after the tool, under `base_dir`
 #'   (`<base_dir>/<folder>/...`). If `FALSE`, files are placed as-is directly
@@ -86,18 +131,36 @@ tf_download_folder <- function(folder_name, dest_dir, quiet = FALSE) {
 #'   Defaults to the current working directory (`getwd()`).
 #' @param refresh Logical. Force a recheck of the repo's folder list before
 #'   showing the menu, ignoring the weekly cache.
+#' @param force Logical. If `TRUE`, overwrite an existing non-empty
+#'   destination directory (its contents are deleted first). Default `FALSE`,
+#'   which errors if `dest_dir` already exists and has files in it.
+#' @param install Character or logical. Controls installation for folders
+#'   detected as R packages (a top-level `DESCRIPTION` file). One of:
+#'   \describe{
+#'     \item{`"ask"`}{(default) Prompt interactively if a package is
+#'       detected and the session is interactive; otherwise behaves like
+#'       `"never"`.}
+#'     \item{`"auto"` / `TRUE`}{Always install detected packages via `pak`,
+#'       no prompt. Safe for non-interactive/scripted use.}
+#'     \item{`"never"` / `FALSE`}{Never install, regardless of detection.}
+#'   }
 #' @param browse Logical. Instead of downloading directly, open
 #'   download-directory.github.io in the browser for the chosen folder and
 #'   let the user download the zip manually.
 #' @param quiet Logical. Suppress status messages.
 #'
-#' @return Invisibly, the path the files were written to.
+#' @return Invisibly, a list with `dest_dir` (path written to), `is_package`
+#'   (logical), and `installed` (logical, whether `pak` install ran).
 #' @export
 #'
 #' @examples
 #' \dontrun{
 #' # Interactive menu, files placed in ./<tool_name>/
 #' tools_fetch()
+#'
+#' # Fully scripted: fetch a specific folder, overwrite if present,
+#' # auto-install if it's a package - no prompts at all
+#' tools_fetch("toolfetch", force = TRUE, install = "auto", quiet = TRUE)
 #'
 #' # Skip the menu, fetch a specific folder as-is into the cwd
 #' tools_fetch("incucyte_parse_confluency", subfolder = FALSE)
@@ -112,11 +175,24 @@ tools_fetch <- function(folder = NULL,
                         subfolder = TRUE,
                         base_dir = getwd(),
                         refresh = FALSE,
+                        force = FALSE,
+                        install = c("ask", "auto", "never"),
                         browse = FALSE,
                         quiet = FALSE) {
+  if (is.logical(install)) install <- if (isTRUE(install)) "auto" else "never"
+  install <- match.arg(install)
+
   folders <- tf_get_folders(force = refresh, quiet = quiet)
 
   if (is.null(folder)) {
+    if (!interactive()) {
+      stop(
+        "`folder` must be specified when running non-interactively ",
+        "(no interactive() session to show a menu in).",
+        call. = FALSE
+      )
+    }
+
     cat("Available tools in jackspepper/tools:\n\n")
     for (i in seq_along(folders)) {
       cat(sprintf("%2d. %s\n", i, folders[i]))
@@ -167,9 +243,10 @@ tools_fetch <- function(folder = NULL,
     stop("`subfolder` must be TRUE, FALSE, or a single path string.", call. = FALSE)
   }
 
-  # Only prompt when writing flat into base_dir with no dedicated subfolder,
-  # since that's the case most likely to clobber unrelated files.
-  if (identical(subfolder, FALSE) && interactive() && !isTRUE(quiet)) {
+  # Only prompt when writing flat into base_dir with no dedicated subfolder
+  # AND not already forcing an overwrite, since that's the case most likely
+  # to clobber unrelated files and `force` already signals explicit intent.
+  if (identical(subfolder, FALSE) && !force && interactive() && !isTRUE(quiet)) {
     ok <- readline(sprintf(
       "This will write '%s' files directly into %s. Continue? [y/N]: ",
       folder, dest_dir
@@ -180,8 +257,37 @@ tools_fetch <- function(folder = NULL,
     }
   }
 
-  tf_download_folder(folder, dest_dir, quiet = quiet)
+  result <- tf_download_folder(folder, dest_dir, quiet = quiet, force = force)
 
-  if (!quiet) message("Done. '", folder, "' written to: ", dest_dir)
-  invisible(dest_dir)
+  if (!quiet) message("Done. '", folder, "' written to: ", result$dest_dir)
+
+  installed <- FALSE
+  if (result$is_package) {
+    do_install <- switch(
+      install,
+      auto  = TRUE,
+      never = FALSE,
+      ask   = {
+        if (interactive() && !isTRUE(quiet)) {
+          if (!quiet) message("'", folder, "' looks like an R package (DESCRIPTION found).")
+          ok <- readline(sprintf("Install '%s' now with pak? [y/N]: ", folder))
+          tolower(ok) %in% c("y", "yes")
+        } else {
+          FALSE
+        }
+      }
+    )
+
+    if (do_install) {
+      tf_install_package(result$dest_dir, quiet = quiet)
+      installed <- TRUE
+    } else if (!quiet && install != "never") {
+      message(
+        "'", folder, "' looks like an R package. Install it with: ",
+        "pak::pkg_install('local::", result$dest_dir, "')"
+      )
+    }
+  }
+
+  invisible(list(dest_dir = result$dest_dir, is_package = result$is_package, installed = installed))
 }
