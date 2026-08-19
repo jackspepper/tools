@@ -1,0 +1,172 @@
+name: README checks
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  readme-checks:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed
+        run: |
+          git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }} > changed_files.txt
+          cat changed_files.txt
+
+      # ------------------------------------------------------------------
+      # Bypass check: label "no-readme" OR "[skip-readme]" in PR title or
+      # any commit message skips Check 1 entirely.
+      # ------------------------------------------------------------------
+      - name: Check for bypass
+        id: bypass
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          skip="false"
+          reason=""
+
+          if echo "$PR_LABELS" | grep -qi "no-readme"; then
+            skip="true"
+            reason="PR label 'no-readme'"
+          fi
+
+          if echo "$PR_TITLE" | grep -qi "\[skip-readme\]"; then
+            skip="true"
+            reason="[skip-readme] in PR title"
+          fi
+
+          if git log --format=%B ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} | grep -qi "\[skip-readme\]"; then
+            skip="true"
+            reason="[skip-readme] in a commit message"
+          fi
+
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [[ "$skip" == "true" ]]; then
+            echo "Bypass active: $reason"
+          fi
+
+      # ------------------------------------------------------------------
+      # Check 1: any top-level tool folder with changed files must also
+      # have a changed README.md in that same folder.
+      # ------------------------------------------------------------------
+      - name: Check per-tool README updated
+        if: steps.bypass.outputs.skip != 'true'
+        id: readme_check
+        run: |
+          set -e
+          missing=""
+
+          for dir in */; do
+            dir="${dir%/}"
+            [[ "$dir" == .* ]] && continue
+            [[ ! -d "$dir" ]] && continue
+
+            code_changed=$(grep "^$dir/" changed_files.txt | grep -v "^$dir/README.md$" || true)
+            readme_changed=$(grep "^$dir/README.md$" changed_files.txt || true)
+
+            if [[ -n "$code_changed" && -z "$readme_changed" ]]; then
+              if [[ -f "$dir/README.md" ]]; then
+                missing="$missing\n- \`$dir\` (has README.md, but it wasn't updated)"
+              else
+                missing="$missing\n- \`$dir\` (no README.md at all)"
+              fi
+            fi
+          done
+
+          if [[ -n "$missing" ]]; then
+            echo "::error::The following tool folders changed without a matching README update:$missing"
+            echo -e "$missing"
+            {
+              echo "missing<<EOF"
+              echo -e "$missing"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          echo "All changed tool folders have an updated README.md."
+
+      # ------------------------------------------------------------------
+      # Check 2: root README.md links to every top-level tool folder.
+      # ------------------------------------------------------------------
+      - name: Check root README lists all tools
+        run: |
+          set -e
+          missing=""
+
+          for dir in */; do
+            dir="${dir%/}"
+            [[ "$dir" == .* ]] && continue
+            [[ ! -d "$dir" ]] && continue
+
+            if ! grep -qE "\(\.?/?$dir(/[^)]*)?\)" README.md; then
+              missing="$missing\n- $dir"
+            fi
+          done
+
+          if [[ -n "$missing" ]]; then
+            echo "::error::The following tool folders are not referenced in the root README.md:$missing"
+            echo -e "$missing"
+            exit 1
+          fi
+
+          echo "Root README.md references all top-level tool folders."
+
+      # ------------------------------------------------------------------
+      # Reminder: post/update a PR comment if Check 1 failed, so it's
+      # visible without digging through Actions logs.
+      # ------------------------------------------------------------------
+      - name: Post reminder comment
+        if: failure() && steps.readme_check.outcome == 'failure'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const missing = `${{ steps.readme_check.outputs.missing }}`;
+            const body = [
+              '### 📋 README update reminder',
+              '',
+              "This PR changes files in a tool folder, but the folder's `README.md` wasn't updated:",
+              '',
+              missing,
+              '',
+              'If this was a small/cosmetic change and no README update is needed, either:',
+              '- Add the `no-readme` label to this PR, or',
+              '- Include `[skip-readme]` in the PR title or a commit message',
+              '',
+              'and re-run the check.'
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('README update reminder')
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
