@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.3.0-dev - current
+## 0.3.1-package - current
+
+### Stripping down for repo consolidation
+- Stripped out standalone github repo requirements (such as Github actions) so this can be consolidated into jackspepper/tools repo as a tool.
+- The main repo [jackspepper/qPCR-pipeline](https://github.com/jackspepper/qPCR-pipeline) shall remain private as a legacy remainder of the scripts and initial packaging.
+
+## 0.3.0-dev
 
 ### R Package Refactoring
 - Converted script-based repository into an installable R package (`qpcrpipeline`).
