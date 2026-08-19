@@ -16,6 +16,8 @@ See the [toolfetch README](./toolfetch/README.md) for full usage.
 
 ## Tools
 [toolfetch](./toolfetch) - An R package for browsing and downloading tools from this repo (see Installation above).\
-[Incucyte Confluency Parser](./incucyte_parse_confluency.R) - A script to parse Incucyte confluency analysis data and output a tidy data frame.\
-[Incucyte Confluency Report](./incucyte_report_confluency) - A Quarto report that builds on the parser to produce per-plate/per-date summaries, well-flagging, and confluence heatmaps.\
-[96-Well Plate Editor](./plate_editor.R) - A standalone browser app to create a visualisation of 96-well plate layouts with colours and dilutions.
+[Incucyte Confluency Parser](./incucyte_parse_confluency/) - A script to parse Incucyte confluency analysis data and output a tidy data frame.\
+[Incucyte Confluency Report](./incucyte_report_confluency/) - A Quarto report that builds on the parser to produce per-plate/per-date summaries, well-flagging, and confluence heatmaps.\
+[96-Well Plate Editor](./96_well_plate_editor/) - A standalone browser app to create a visualisation of 96-well plate layouts with colours and dilutions.\
+[ND2 Composite](./nd2_composite/) - A python script that converts .nd2 Z-stacks into Maximum Intensity Plots (MIP).\
+[Microscopy Presentation](./microscopy_presentation_pipeline/) - A Quarto document that builds a automatic presentation of microscopy Z-stack MIPs using python helper functions.
