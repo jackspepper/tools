@@ -1,6 +1,6 @@
 Package: qpcrpipeline
 Title: MIQE-aligned qPCR Data Cleaning and Consolidation Pipeline
-Version: 0.3.0
+Version: 0.3.1
 Authors@R: person("Jack", "Pepper", email = "jack.pepper@thekids.org.au", role = c("aut", "cre"))
 Description: An R package for cleaning, auditing, and consolidating quantitative PCR (qPCR) data exported from CFX Maestro. Implements MIQE-aligned quality control checks, LOD classification, and target consolidation into structured Excel workbooks. Fully supports piped workflows.
 License: MIT + file LICENSE
