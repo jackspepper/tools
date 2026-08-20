@@ -1,0 +1,210 @@
+---
+title: "Getting Started: Setup and File Conventions"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started: Setup and File Conventions}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+Functions covered: `run_cleaning_pipeline()` and `run_consolidation_pipeline()`, for use with CFX Maestro exports.
+
+## About this guide
+
+This guide explains how to use the `qpcrpipeline` package, which forms your laboratory's qPCR data processing pipeline. It is written for biomedical researchers who are comfortable with qPCR experiments and CFX Maestro, but who may not have extensive experience writing or modifying R code.
+
+**What the pipeline does:** Raw quantitative PCR data exported from CFX Maestro is cleaned, quality-checked, and flagged for manual review according to MIQE-aligned criteria. `run_cleaning_pipeline()` processes each plate individually and writes cleaned CSV files. `run_consolidation_pipeline()` then gathers those CSVs into structured Excel workbooks, one sheet per target, ready for downstream analysis.
+
+**What you will need to do:** Before each run you will need to check a small number of arguments, ensure your files are named correctly, and respond to a handful of yes/no prompts in the R console during processing. No programming knowledge beyond calling a function is required.
+
+> **Assumed starting point:** R and RStudio are already installed on your computer, and you have installed the `qpcrpipeline` package. Your raw data was exported from CFX Maestro as CSV without any structural modifications to the file (sample names, target names, and Content labels may have been edited, but no columns have been added, removed, or reordered).
+
+Related vignettes:
+
+- `vignette("cleaning-pipeline", package = "qpcrpipeline")` - running `run_cleaning_pipeline()`
+- `vignette("consolidation", package = "qpcrpipeline")` - running `run_consolidation_pipeline()` and understanding outputs
+- `vignette("troubleshooting", package = "qpcrpipeline")` - troubleshooting and quick reference
+- `vignette("reference", package = "qpcrpipeline")` - full list of default argument and target values
+
+## Installing the package
+
+```{r}
+install.packages("pak")
+pak::pkg_install("jackspepper/tools/toolfetch")
+
+toolfetch::tools_fetch(
+  folder = "qPCR_pipeline",
+  install = "auto",
+  cleanup = TRUE
+)
+```
+
+This installs `qpcrpipeline` and its dependencies, including `here`, which the example project template relies on to locate paths reliably regardless of your working directory.
+
+## Setting up your project folder
+
+Each experiment should have its own dedicated project folder. The easiest way to set one up is with `use_qpcr_template()`, which copies a ready-to-run example script and the expected folder structure into a directory of your choice:
+
+```{r}
+library(qpcrpipeline)
+use_qpcr_template(path = "MyExperiment_2024")
+```
+
+This creates a `RawData/` folder (with its own README describing what belongs there) and a runner script, `qpcr_pipeline.R`, pre-wired to call `run_cleaning_pipeline()` piped into `run_consolidation_pipeline()`. Place your raw CFX Maestro CSVs in `RawData/`, open `qpcr_pipeline.R`, and run it. The `outputs/`, `consolidated/`, and `audit/` folders are created automatically when the pipeline runs.
+
+### Recommended folder layout
+
+```
+MyExperiment_2024/
+├── RawData/
+│     ├── 241212_Plate1_fucp_hpd3.csv
+│     ├── 241212_Plate2_lyta_copb.csv
+│     └── 241215_Plate3_fucp_hpd3.csv
+│
+├── qpcr_pipeline.R                 ← Runner script (from use_qpcr_template())
+│
+├── outputs/                        ← Created automatically by run_cleaning_pipeline()
+│     ├── 241212_Plate1_fucp_hpd3_all_samples.csv
+│     ├── 241212_Plate1_fucp_hpd3_review_samples.csv
+│     └── ...
+│
+├── consolidated/                   ← Created automatically by run_consolidation_pipeline()
+│     ├── qpcr_all_samples.xlsx
+│     └── qpcr_review_samples.xlsx
+│
+└── audit/                          ← Created automatically by run_cleaning_pipeline()
+      ├── pcr_decisions.csv
+      ├── pcr_variables.csv
+      ├── pcr_standards.csv
+      ├── pcr_run_log.txt
+      ├── pcr_consolidation_log.txt
+      └── file_tree.txt
+```
+
+**Before you begin:** Open RStudio, then use **File -> Open Project** or **File -> Open File** to navigate to your experiment folder and open `qpcr_pipeline.R`. Ensure that RStudio's working directory is set to your experiment folder - you should see the correct path in the Files panel on the lower right. If it shows the wrong folder, use **Session -> Set Working Directory -> To Source File Location**.
+
+## File naming conventions
+
+`run_consolidation_pipeline()` reads the filename of each plate CSV to automatically populate two metadata columns in the Excel output: the run **Date** and the **Plate number**. If your filenames do not follow the expected conventions, these columns will be blank in your final workbook - the data itself is unaffected, but you will need to fill in those columns manually after consolidation.
+
+### Recommended filename format
+
+```
+YYMMDD_PlateN_[target(s)][_optional-info].csv
+```
+
+Examples of filenames that will parse correctly:
+
+```
+241212_Plate1_fucp_hpd3.csv          -> Date: 2024-12-12, Plate: 1
+20241212_Plate2_lyta_copb.csv        -> Date: 2024-12-12, Plate: 2
+241215_Plate3_nuc_rpt2.csv           -> Date: 2024-12-15, Plate: 3, Repeat: 2
+241215_plate_no3_lyta.csv            -> Date: 2024-12-15, Plate: 3
+```
+
+### Date parsing rules
+
+The date must appear at the very beginning of the filename, followed immediately by an underscore. Both 6-digit (YYMMDD) and 8-digit (YYYYMMDD) formats are accepted.
+
+| Format | Example | Parsed as |
+|--------|---------|-----------|
+| YYMMDD (recommended) | `241212_` | 2024-12-12 |
+| YYYYMMDD | `20241212_` | 2024-12-12 |
+| No date at start | `Plate1_fucp.csv` | (blank - will warn) |
+
+### Plate number parsing rules
+
+The word `plate` (case-insensitive) followed by a number should appear somewhere in the filename. Various separators and qualifiers are accepted:
+
+```
+Plate1    Plate_2    Plate-3    plate 4
+plate#5   plate no. 6   PlateNo7
+```
+
+> **Limitation - not a blocker:** If a filename does not contain a parseable date or plate number, a warning will appear in the console during consolidation and those cells will be blank in the Excel output. Your data is still fully processed and consolidated - only those two metadata columns will be empty. You can fill them in manually in Excel after the run, or rename your files to follow the convention before re-running.
+
+### Repeat number parsing
+
+If a plate was repeated, you can include `rpt`, `rep`, or `repeat` followed by a number in the filename. This populates a `Repeat#` column in the consolidated Excel output:
+
+```
+241215_Plate3_fucp_rpt2.csv          -> Repeat#: 2
+241215_Plate3_fucp_rep2.csv          -> Repeat#: 2
+241215_Plate3_fucp_repeat2.csv       -> Repeat#: 2
+241215_Plate3_fucp_rpt.csv           -> Repeat#: 1  (keyword without number = 1)
+```
+
+> **Reserved words in sample names - read carefully**
+>
+> `run_cleaning_pipeline()` automatically removes any row where the **Sample** column contains the words `Std`, `NTC`, or `Neg` (case-insensitive, checked as a partial match, controlled by the `rm_patterns` argument). These are treated as control or standard wells, not experimental samples. **Do not use these words in your real sample names.**
+>
+> Examples of names that **would be removed**:
+> - Any sample containing `Std` - e.g. `Std-001`, `Std_High`
+> - Any sample containing `NTC` - e.g. `NTC`, `NTC_plate2`
+> - Any sample containing `Neg` - e.g. `NegControl`, `Neg_sample`
+
+## Data requirements and assumptions
+
+### Required CSV format
+
+Your raw CSV files must be direct exports from CFX Maestro, without any structural modifications. `run_cleaning_pipeline()` dynamically locates the data table inside the file by searching for a row that begins with the word `Well` - this means CFX Maestro's metadata header rows at the top of the file are handled automatically and do not need to be removed.
+
+**Minor edits that are acceptable:** Changing sample names, target names, and Content labels within CFX Maestro or directly in the CSV.
+
+**Edits that will break the pipeline:** Deleting, renaming, or reordering any of the columns listed below.
+
+| Required column | Description |
+|----------------|-------------|
+| `Well` | Well identifier (e.g. A01, B02) |
+| `Fluor` | Fluorophore channel (e.g. FAM, HEX, ROX) |
+| `Target` | The gene/target being measured (e.g. fucp, hpd3, uni) |
+| `Content` | Well type label - includes standard labels (Std-001 to Std-006), NTC, and sample identifiers |
+| `Sample` | Sample name - your experimental sample identifier |
+| `Cq` | Quantification cycle value |
+| `Starting Quantity (SQ)` | Calculated starting quantity from the standard curve |
+
+### Standards
+
+Before processing any data, `run_cleaning_pipeline()` checks that all six expected standard wells are present in the `Content` column of each plate. Standards must be labelled as Std-001 through Std-006.
+
+Both label formats are accepted:
+
+| Label format | Example | Notes |
+|-------------|---------|-------|
+| Canonical (preferred) | `Std-001`, `Std-002`, `Std-003`...| No warning produced |
+| Abbreviated | `Std-01`, `Std-02`, `Std-03`...| Warning in console and audit log, but still processed |
+
+**Why this matters:** Standards Std-001 through Std-003 define the upper limit of detection (LOD Hi), and Std-004 through Std-006 define the lower limit (LOD Lo). If standards are missing, the pipeline cannot reliably apply these thresholds and will ask you how to proceed.
+
+### Targets and Limits of Detection (LOD)
+
+Each target (gene) in your data has a defined upper and lower limit of quantification, set via the `target_lod` argument to `run_cleaning_pipeline()` (defaults to `DEFAULT_target_lod`, pre-configured with values for the targets used in your laboratory).
+
+| LOD boundary | Value | What it means |
+|-------------|-------|---------------|
+| LOD Hi (upper) | 2000 SQ (most targets); 200 SQ (uni/univ/universal) | Maximum reliable SQ from the standard curve. Samples above this are flagged - results are extrapolated and unreliable. |
+| LOD Lo (lower) | 0.012 SQ (most targets); 0.0012 SQ (uni/univ/universal) | Minimum detectable SQ. Samples below this (or with no amplification) are set to LOD Lo ÷ 2 as a below-detection placeholder. |
+
+You only need to pass a custom `target_lod` if you are adding a new target that is not already listed in `DEFAULT_target_lod`. See `vignette("reference", package = "qpcrpipeline")` for the full default list.
+
+> **Critical rule - targets with different LOD values cannot share a plate**
+>
+> The pipeline processes all targets on a plate together and applies a single set of LOD values to all rows. If two targets on the same plate have different LOD Hi or LOD Lo values, the pipeline will stop with an error. This means you cannot include both `uni` (LOD Hi = 200) and `fucp` (LOD Hi = 2000) on the same plate CSV. If you receive an error such as `Different Hi values found: 200, 2000`, check which targets are present in that plate file and separate them before re-running.
+
+### Replicates
+
+The pipeline expects each experimental sample to have exactly two replicate wells per target (duplicates). Samples with one or more than two replicates will still appear in your output but will be flagged for manual review.
+
+### The universal target (uni / univ / universal)
+
+`uni`, `univ`, and `universal` are treated as an internal positive control - a target that should amplify in every sample. If any sample completely fails to amplify for this target or produces a value below LOD Lo, it is flagged as an "unexpected negative". All three spellings are recognised as the same target (controlled by the `always_positive_targets` argument) and consolidated onto a single sheet in the Excel output.
+
+Continue to `vignette("cleaning-pipeline", package = "qpcrpipeline")` to run the cleaning stage.

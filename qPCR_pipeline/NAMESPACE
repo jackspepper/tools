@@ -2,6 +2,7 @@
 
 export(DEFAULT_always_positive_targets)
 export(DEFAULT_target_lod)
+export(example_plate_path)
 export(run_cleaning_pipeline)
 export(run_consolidation_pipeline)
 export(use_qpcr_template)
@@ -16,14 +17,18 @@ import(stringr)
 import(tidyr)
 importFrom(grDevices,dev.off)
 importFrom(purrr,pmap_chr)
-importFrom(stats,median)
-importFrom(stats,sd)
-importFrom(stats,setNames)
-importFrom(utils,flush.console)
-importFrom(utils,head)
-importFrom(utils,packageVersion)
-importFrom(utils,read.csv)
-importFrom(utils,sessionInfo)
-importFrom(utils,tail)
-importFrom(utils,timestamp)
-importFrom(utils,write.csv)
+importFrom(stats,
+  median,
+  sd,
+  setNames
+)
+importFrom(utils,
+  flush.console,
+  head,
+  packageVersion,
+  read.csv,
+  sessionInfo,
+  tail,
+  timestamp,
+  write.csv
+)

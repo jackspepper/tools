@@ -1,10 +1,4 @@
-> This packages has been imported from another repo and requires cleaning.
----
-
 # qPCR Data Processing Pipeline
-
-[![Run qPCR Pipeline Tests](https://github.com/jackspepper/qPCR-pipeline/actions/workflows/run-tests.yml/badge.svg)](https://github.com/jackspepper/qPCR-pipeline/actions/workflows/run-tests.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 An installable R package for MIQE-aligned cleaning and consolidation of CFX Maestro qPCR exports.
 
@@ -18,11 +12,12 @@ An installable R package for MIQE-aligned cleaning and consolidation of CFX Maes
 You can install the package directly from GitHub:
 
 ```r
-if (!requireNamespace("remotes", quietly = TRUE)) {
-  install.packages("remotes")
-}
-remotes::install_github("jackspepper/qPCR-pipeline")
+install.packages("pak")
+pak::pkg_install("jackspepper/tools/toolfetch")
+ 
+toolfetch::tools_fetch("qPCR_pipeline", install = "auto", cleanup = TRUE)
 ```
+(`devtools::install_github("jackspepper/tools", subdir = "qPCR_pipeline")` also works if you'd rather not add `pak`.)
 
 ## Quick Start / Usage
 

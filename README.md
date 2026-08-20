@@ -20,5 +20,5 @@ See the [toolfetch README](./toolfetch/README.md) for full usage.
 [Incucyte Confluency Report](./incucyte_report_confluency/) - A Quarto report that builds on the parser to produce per-plate/per-date summaries, well-flagging, and confluence heatmaps.\
 [96-Well Plate Editor](./96_well_plate_editor/) - A standalone browser app to create a visualisation of 96-well plate layouts with colours and dilutions.\
 [ND2 Composite](./nd2_composite/) - A python script that converts .nd2 Z-stacks into Maximum Intensity Plots (MIP).\
-[Microscopy Presentation](./microscopy_presentation_pipeline/) - A Quarto document that builds a automatic presentation of microscopy Z-stack MIPs using python helper functions.
-[qPCR Pipeline](./qPCR-pipeline/) - A qPCR pipeline for cleaning and identifying samples that require additional scrutiny.
+[Microscopy Presentation](./microscopy_presentation_pipeline/) - A Quarto document that builds a automatic presentation of microscopy Z-stack MIPs using python helper functions.\
+[qPCR Pipeline](./qPCR_pipeline/) - A qPCR pipeline for cleaning and identifying samples that require additional scrutiny.

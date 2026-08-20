@@ -1,0 +1,235 @@
+---
+title: "Running Consolidation and Understanding Outputs"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Running Consolidation and Understanding Outputs}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+This vignette covers `run_consolidation_pipeline()`, the resulting output files, and the audit log. Run `vignette("cleaning-pipeline", package = "qpcrpipeline")` first. For a full list of default values for every argument mentioned below, see `vignette("reference", package = "qpcrpipeline")` or `?run_consolidation_pipeline`.
+
+## Running consolidation
+
+After the cleaning pipeline has finished, run `run_consolidation_pipeline()`. This reads all the cleaned CSV files from the `outputs` folder and assembles them into two Excel workbooks.
+
+```{r}
+library(qpcrpipeline)
+
+run_consolidation_pipeline(
+  input_dir = "outputs/",
+  consolidation_dir = "consolidated"
+)
+```
+
+Or pipe directly from `run_cleaning_pipeline()`:
+
+```{r}
+"RawData/" |>
+  run_cleaning_pipeline(output_dir = "outputs") |>
+  run_consolidation_pipeline(consolidation_dir = "consolidated")
+```
+
+## Key arguments
+
+### Input directory
+
+```{r}
+run_consolidation_pipeline(input_dir = "outputs/")
+```
+
+This should match `output_dir` from `run_cleaning_pipeline()`.
+
+### Output location
+
+```{r}
+run_consolidation_pipeline(
+  consolidation_dir = "consolidated",
+  all_out_path = NULL,     # defaults to consolidated/qpcr_all_samples.xlsx
+  review_out_path = NULL   # defaults to consolidated/qpcr_review_samples.xlsx
+)
+```
+
+Leave `all_out_path` and `review_out_path` as `NULL` to use the standard filenames inside `consolidation_dir`, or supply explicit paths to override them.
+
+### Target alias mapping
+
+```{r}
+run_consolidation_pipeline(
+  target_aliases = list(uni = c("uni", "universal", "univ"))
+)
+```
+
+Treats `uni`, `universal`, and `univ` as the same target and consolidates them onto a single sheet named `uni`. You do not normally need to change this.
+
+## Running from the example template
+
+If you used `use_qpcr_template()`, the generated `qpcr_pipeline.R` script already pipes `run_cleaning_pipeline()` into `run_consolidation_pipeline()`. Press **Ctrl+Shift+Enter** (or **Cmd+Shift+Enter** on Mac) to run the whole script.
+
+### The output file conflict prompt
+
+If the output Excel files already exist from a previous run:
+
+```
+------------------------------------------------------------
+ All-samples workbook already exists:
+  Modified : 2024-12-10 14:32:05
+  Size     : 243.1 KB
+  Sheets   : run_summary, fucp, hpd3, lyta, uni (5 sheets)
+------------------------------------------------------------
+ Options:
+   O = Overwrite  - discard existing workbook and rebuild
+   A = Append     - merge new data into existing workbook
+   N = New file   - save under a different name
+ Enter O, A, or N: _
+```
+
+**O - Overwrite:** The existing workbook is deleted and rebuilt from scratch. Use this when you have reprocessed all plates or want a completely fresh consolidation.
+
+**A - Append:** New data from freshly processed plates is merged into the existing workbook. Duplicate rows are removed automatically. Use this when adding new plates to an ongoing experiment.
+
+**N - New file:** The existing workbook is kept and the new consolidation is saved under a different name. You will be prompted to enter a suffix, or press Enter to use a timestamp automatically.
+
+This prompt requires an interactive R session. See [Non-interactive use] below for what happens when `run_consolidation_pipeline()` is called from a script.
+
+### Non-interactive use
+
+If `run_consolidation_pipeline()` is called in a non-interactive session (e.g. via `Rscript`, a scheduled job, or `rmarkdown::render()`) and an output workbook already exists, the prompt above is skipped and the pipeline **defaults to O (overwrite)** without asking. If you're automating a run and want to preserve an existing workbook, set `all_out_path`/`review_out_path` to a new file path, or move/rename the existing workbook before running.
+
+## Understanding your output files
+
+### Cleaning pipeline outputs (in the `outputs/` folder)
+
+For each plate CSV processed, two CSV files are written:
+
+**`[platename]_all_samples.csv`** - Every experimental row after cleaning. Standards, NTCs, and rows with no sample name have been removed, but all remaining rows are present regardless of whether they passed QC.
+
+**`[platename]_review_samples.csv`** - Only rows flagged as needing manual review. This is a subset of the `_all_samples` file. If a replicate group is flagged, both rows of that pair appear here.
+
+### Column descriptions
+
+| Column | Source | Description |
+|--------|--------|-------------|
+| `Well` | CFX Maestro | Well position (e.g. A01, B02) |
+| `Fluor` | CFX Maestro | Fluorophore channel (e.g. FAM, HEX) |
+| `Target` | CFX Maestro | Gene/target name |
+| `Content` | CFX Maestro | Well type from CFX Maestro (Unkn, Std-001, NTC, etc.) |
+| `Sample` | CFX Maestro | Your sample identifier |
+| `Cq` | CFX Maestro | Quantification cycle value. Blank for no-amplification samples or groups with >2 replicates. |
+| `Starting Quantity (SQ)` | Modified by pipeline | SQ value. If the original was below LOD Lo or absent, set to LOD Lo ÷ 2. Blanked for groups with >2 replicates. |
+| `DeltaCq` | Added by pipeline | Absolute difference between replicate Cq values. Only on the first row of each pair. |
+| `AverageSQ` | Added by pipeline | Mean of replicate SQ values after LOD Lo adjustment. Only on the first row of each pair. |
+| `review_reason` | Added by pipeline | Plain-English explanation of why a row was flagged. Blank if the row passed all checks. Multiple reasons separated by semicolons. |
+
+### Review flags - what they mean and what to do
+
+| Flag | What it means | Common causes | Suggested action |
+|------|--------------|---------------|-----------------|
+| `\|DeltaCq\| exceeds threshold` | Duplicate Cq values differ by more than 1.0 cycle. | Pipetting error, well-to-well variation, partial inhibition. | Check amplification curves in CFX Maestro. If one looks abnormal, exclude that replicate and note it. |
+| `Only one replicate present` | Only a single well found for this sample/target. | Replicate not plated, failed to amplify, or excluded upstream. | Check the plate layout. Determine whether the single value is usable or if re-running is needed. |
+| `One Cq is NA/NaN and the other is numeric` | One replicate amplified and one did not. | Partial inhibition, failed well, insufficient template. | Inspect both wells in CFX Maestro. Consider excluding the non-amplifying well. |
+| `More than 2 replicates - manual reconciliation required` | Three or more wells found for this group. Cq and SQ are blanked. | Sample plated in triplicate, mislabelled layout, or two plates with the same sample names. | **Required action:** open `_all_samples.csv`, locate the group, determine the intended duplicates, and enter correct values manually. |
+| `AverageSQ > LOD_Hi` | Average SQ exceeds the top of the standard curve. | Very high bacterial load, insufficient dilution. | Consider repeating with a higher dilution. Note the limitation if using the result. |
+| `Unexpected negative for always-positive target (No amplification)` | Universal target produced no Cq value in any replicate. | Degraded DNA, very low concentration, failed extraction. | Investigate extraction quality before drawing conclusions from any target for this sample. |
+| `Unexpected negative for always-positive target (Below LOD_Lo)` | Universal target produced Cq but SQ was below LOD Lo. | Very low bacterial DNA, poor extraction, borderline inhibition. | Interpret all results for this sample with caution. |
+| `Sample name mismatch within (Fluor, Target, Content)` | Two or more different sample names found for the same Content/Target/Fluor combination. | Sample given different names in replicate wells, copy-paste error. | Check and correct sample names in CFX Maestro. Re-export and reprocess. |
+
+### Consolidated Excel workbooks (in the `consolidated/` folder)
+
+`run_consolidation_pipeline()` produces two Excel workbooks: `qpcr_all_samples.xlsx` and `qpcr_review_samples.xlsx` (or the paths given via `all_out_path`/`review_out_path`).
+
+**Sheet layout:**
+
+- The first sheet is always `run_summary` - a dashboard showing QC counts, standards check outcomes, and sample counts per plate and per target
+- Each subsequent sheet contains data for one target (e.g. `fucp`, `hpd3`, `lyta`, `uni`)
+- Each sheet is formatted as an Excel Table with auto-filters and a frozen header row
+
+**Additional columns added by the consolidation stage:**
+
+| Column | Description |
+|--------|-------------|
+| `File Name` | The plate CSV filename the row came from. |
+| `Date` | Run date parsed from the filename (YYYY-MM-DD). Blank if not parseable. |
+| `Plate#` | Plate number parsed from the filename. Blank if not parseable. |
+| `Repeat#` | Repeat number parsed from the filename. Blank if not present. |
+
+**The `run_summary` sheet contains four sections:**
+
+1. **Decision Breakdown** - how many times each QC rule fired per plate
+2. **Standards Check Results** - pass/skipped/forced outcome per plate
+3. **Final Sample Counts** - plate × target row counts for `all_samples`
+4. **Review Sample Counts** - plate × target row counts for `review_samples`
+
+## The audit folder
+
+Every run writes to a set of log files in the `audit/` folder. These provide a complete, timestamped record of every decision made during processing.
+
+### `pcr_decisions.csv`
+
+One row per QC decision made on every sample and target.
+
+| Column | Description |
+|--------|-------------|
+| `timestamp` | UTC date and time the decision was recorded |
+| `user` | Windows/Mac username of whoever ran the pipeline |
+| `run_id` | Unique identifier for the plate processing run (format: `YYYYMMDD_HHMMSS_platename`) |
+| `input_file` | The original plate CSV filename |
+| `sample_id` | The sample identifier the decision applies to |
+| `target` | The target (gene) the decision applies to |
+| `rule_id` | The QC rule evaluated (e.g. `RV_DELTA_CQ`, `PASS_NEGATIVE`) |
+| `outcome` | Whether the rule was `applied`, `skipped`, or resulted in a `pass` |
+| `evidence` | Brief description of the values that led to the decision |
+| `source` | Always `R_script` |
+| `version` | Package version number |
+
+> **Practical use:** To review all decisions for a specific plate, filter the `input_file` column. To see only flagged results, filter `outcome` to `applied`. To compare two runs of the same plate, filter by `run_id`.
+
+### `pcr_variables.csv`
+
+One row per argument value used during each plate's processing run.
+
+| Column | Description |
+|--------|-------------|
+| `var_name` | Argument name (e.g. `delta_cq_threshold`, `lod_hi`, `lod_lo`, `rm_patterns`) |
+| `var_value` | The value of that argument at the time of the run |
+| `var_class` | The R data type of the value |
+
+> **Practical use:** To verify what thresholds were applied to a historical plate run, filter by `run_id` and look at the `delta_cq_threshold`, `lod_hi`, and `lod_lo` rows.
+
+### `pcr_standards.csv`
+
+One row per plate per run, recording the outcome of the standards check.
+
+| Column | Description |
+|--------|-------------|
+| `n_expected` | How many standards were expected |
+| `expected_standards` | Full list of expected labels, separated by pipes |
+| `found_standards` | Standard labels actually found in the plate |
+| `missing_standards` | Standards expected but not found. Empty if the plate passed. |
+| `action` | `pass`, `skipped`, or `forced` |
+| `lod_override` | LOD values entered manually if `action` was `forced`. Otherwise blank. |
+| `notes` | Additional context |
+
+### `pcr_run_log.txt`
+
+A plain-text transcript of everything printed to the R console during `run_cleaning_pipeline()`. Overwritten each time the pipeline runs.
+
+> **Note:** If the pipeline exits with an error before completing, the log file may be left in an incomplete state. If subsequent console output stops appearing in RStudio, type `sink()` in the console and press Enter to restore normal output.
+
+### `pcr_consolidation_log.txt`
+
+Equivalent to `pcr_run_log.txt` but for `run_consolidation_pipeline()`.
+
+### `file_tree.txt`
+
+A snapshot of the folder structure and file list discovered at the start of each `run_cleaning_pipeline()` run.
+
+If something doesn't look right, see `vignette("troubleshooting", package = "qpcrpipeline")`.
