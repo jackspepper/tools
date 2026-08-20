@@ -28,3 +28,6 @@ renv/staging/
 # OS-specific files
 Thumbs.db
 .DS_Store
+inst/doc
+/doc/
+/Meta/

@@ -1,0 +1,159 @@
+---
+title: "Troubleshooting and Quick Reference"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Troubleshooting and Quick Reference}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+## Troubleshooting
+
+### Script will not start or package errors
+
+**`Error: tidyverse is not installed`**
+
+Run `install.packages("tidyverse")` in the R console and wait for it to complete, then try again.
+
+**`Error: dplyr >= 1.1.0 required (installed: 1.0.5)`**
+
+Your installed version is too old. Run `install.packages("tidyverse")` to update.
+
+**Console output stops appearing after a script error**
+
+Type the following in the console and press Enter:
+
+```{r}
+sink()
+```
+
+This closes the log file connection the script opened. If the problem persists, restart RStudio.
+
+### File discovery problems
+
+**`Error: No matching files found`**
+
+Check:
+
+- Your working directory in RStudio is set to the project folder (**Session -> Set Working Directory -> To Source File Location**)
+- The `RawData` folder exists and contains `.csv` files
+- The `input_dir` setting in Section 1 matches your actual folder name (case-sensitive on Mac and Linux)
+
+**`Could not find a row with 'Well' in column 1`**
+
+The file does not contain the expected `Well` header row. Possible causes:
+
+- The file was saved from different software or a different export format
+- The file was opened and re-saved in Excel, which may have corrupted the format - always work with copies, not originals
+- Ensure you are exporting as "Quantification Results" CSV from CFX Maestro
+
+**`Missing required columns`**
+
+A required column is missing or has an unexpected name. Most common cause: the plate was exported without a required column, or a column was renamed after export. Always use the original, unmodified export file.
+
+### LOD and target errors
+
+**`Error: Missing targets in LOD_Hi: newgene`**
+
+A target in your data is not defined in Section 2. Add the target's LOD values to Section 2 following the existing format.
+
+**`Error: Different Hi values found: 200, 2000`**
+
+Your plate contains targets with different LOD values (e.g. `uni` and `fucp` on the same plate file). Split the plate's CSV data into separate files - one per LOD group - before running the script.
+
+### Standards check failures
+
+**A plate repeatedly fails the standards check**
+
+Check:
+
+- Standards in the Content column must be labelled exactly as `Std-001` through `Std-006` (or `Std-01` through `Std-06`). Other formats such as `Standard 1`, `S1`, or `STD001` will not be recognised.
+- If your assay uses a different number of standards, update `n_standards` in Section 1.
+- If you run standards on a single plate and apply the curve to others, set `std_check_enabled <- FALSE` in Section 1 and provide LOD values via `std_force_lod`.
+
+### Output file problems
+
+**`[write retry 1/5] Could not write to '...'`**
+
+The script retries up to 5 times. This usually means the output file is open in Excel. Close it and the script will succeed on the next retry.
+
+**`Error: No matching files found in outputs/`**
+
+Run the cleaning pipeline (Script 1) first, or check that `input_dir` in the consolidation script matches `output_dir` from the cleaning pipeline.
+
+### Unexpected results in the output
+
+**My sample rows are missing from the output**
+
+Most common reasons:
+
+- Sample name contained a reserved word (`Std`, `NTC`, or `Neg`) - rows are removed in Step 2
+- Sample name was blank - rows are removed in Step 0
+- Plate was skipped - check the run summary table in the console output
+
+**DeltaCq and AverageSQ are blank for some rows**
+
+Expected in two situations:
+
+- **Second row of a replicate pair** - these values are only on the first row of each pair. Look one row up.
+- **More than 2 replicates (`RV_EXCESS_REPS` flag)** - all Cq, SQ, DeltaCq, and AverageSQ are deliberately blanked. The `review_reason` column will explain this. You must resolve it manually.
+
+**A target is not showing as a sheet in Excel**
+
+Check:
+
+- The target name in the CSV must match a name in Section 2 of the cleaning script
+- Check `TARGET_ALIASES` in the consolidation script if the target uses multiple spellings
+- Target names are normalised to lowercase - look for the sheet under the lowercase version of the name
+
+## Quick reference
+
+### Standard workflow
+
+1. Export plate data from CFX Maestro as CSV (Quantification Results format, no structural modifications)
+2. Rename each file to `YYMMDD_PlateN_[targets].csv` and place in the `RawData/` folder
+3. Open `qpcr_cleaning_pipeline.R` in RStudio. Verify `input_dir` points to your `RawData` folder
+4. Press **Ctrl+Shift+Enter** to run Script 1. Respond to any interactive prompts
+5. Check the run summary - confirm all plates show `processed` status and row counts look reasonable
+6. Open `qpcr_consolidation.R`. Verify `input_dir` is set to `outputs/`
+7. Press **Ctrl+Shift+Enter** to run Script 2. Choose O/A/N if prompted about existing workbooks
+8. Open `qpcr_all_samples.xlsx` and `qpcr_review_samples.xlsx` from the `consolidated/` folder
+9. Review any rows in the review workbook and investigate flagged results before using them in your analysis
+
+### Reserved words - never use in sample names
+
+| Reserved word | What it matches (examples) | Effect |
+|--------------|---------------------------|--------|
+| `Std` | Std, Std-001, STD_curve, MyStd | Row removed from output |
+| `NTC` | NTC, ntc, NTC_plate2 | Row removed from output |
+| `Neg` | Neg, NegControl, Negative_sample, neg | Row removed from output |
+
+### Review flag summary
+
+| `review_reason` text | Meaning | Urgency |
+|----------------------|---------|---------|
+| `\|DeltaCq\| exceeds threshold` | Duplicates differ by > 1 Cq | Review |
+| `Only one replicate present` | Single well only | Review |
+| `One Cq is NA/NaN and the other is numeric` | Mixed amplification in duplicates | Review |
+| `More than 2 replicates - manual reconciliation required` | 3+ wells for this group; Cq/SQ blanked | **Action required** |
+| `AverageSQ > LOD_Hi` | Above standard curve range | Review |
+| `Unexpected negative for always-positive target (No amplification)` | uni/univ/universal did not amplify | Investigate sample quality |
+| `Unexpected negative for always-positive target (Below LOD_Lo)` | uni/univ/universal below detection | Investigate sample quality |
+| `Sample name mismatch within (Fluor, Target, Content)` | Inconsistent sample labelling | Correct in CFX Maestro and reprocess |
+
+### Interactive prompts at a glance
+
+| Prompt | Options | Choose when |
+|--------|---------|-------------|
+| Skip completed plates? | Y = skip, N = reprocess all | Y when adding new plates to an existing experiment. N when you have changed data or settings. |
+| Standards check failed | S = skip, M = mixed handling, F = force all | S if plate data is unreliable. M if only interior standards are missing. F if you have manually verified LOD values. |
+| Blank sample names | S = skip, C = use Content as sample name | S if you want to add sample names first. C only as a temporary measure. |
+| Output workbook already exists | O = overwrite, A = append, N = new file | O for a fresh run. A when adding new plates. N to preserve the existing version. |

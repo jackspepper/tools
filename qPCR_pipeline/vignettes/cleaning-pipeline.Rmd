@@ -1,0 +1,221 @@
+---
+title: "Running the Cleaning Pipeline (Script 1)"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Running the Cleaning Pipeline (Script 1)}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+This vignette covers `qpcr_cleaning_pipeline.R`, the first script in the pipeline. See `vignette("qpcrpipeline")` first if you haven't set up your project folder or checked your file naming conventions. For a full list of default values for every variable mentioned below, see `vignette("reference", package = "qpcrpipeline")`.
+
+## Overview
+
+The cleaning pipeline (`qpcr_cleaning_pipeline.R`) is the first script to run. It reads your raw plate CSV files, applies quality control checks, and writes cleaned output files ready for the consolidation step.
+
+## Step 1 - Check your settings (Section 1 of the script)
+
+### Input directory
+
+```{r}
+input_dir <- "RawData/"
+```
+
+This tells the script where to look for your plate CSV files. If you are following the recommended project folder structure, you do not need to change this.
+
+### Delta Cq threshold
+
+```{r}
+delta_cq_threshold <- 1.0
+```
+
+Controls how large a difference between duplicate Cq values is acceptable. The default of 1.0 means that if your two replicates differ by more than 1 Cq cycle, the pair is flagged for review. This is a commonly used MIQE-aligned threshold.
+
+### Skip completed plates
+
+```{r}
+skip_completed <- TRUE
+```
+
+When `TRUE`, the script checks whether output files already exist for each plate before processing. If both output CSVs already exist, you will be asked whether to skip that plate or reprocess it.
+
+### Number of standards
+
+```{r}
+n_standards <- 6
+```
+
+The number of standard wells expected on each plate. Change this only if your standard curve uses a different number of points.
+
+## Step 2 - Check your LOD definitions (Section 2 of the script)
+
+Section 2 defines the upper and lower limits of detection for each target. The script comes pre-configured with values for the targets used in your laboratory. You only need to edit this section if you are adding a new target that is not already listed.
+
+If the script stops with an error such as `Missing targets in LOD_Hi: [targetname]`, a new target needs to be added to Section 2.
+
+## Step 3 - Run the script
+
+With the script open in RStudio, press **Ctrl+Shift+Enter** (Windows/Linux) or **Cmd+Shift+Enter** (Mac) to run the entire script. The script will begin immediately and print progress to the Console panel at the bottom of RStudio.
+
+## Console output walkthrough
+
+### Run header
+
+```
+============================================================
+ qPCR Pipeline Run Log
+------------------------------------------------------------
+ Directory  : C:/Users/jsmith/Projects/MyExperiment_2024
+ Started    : 2024-12-12 09:14:22
+ User       : jsmith
+ Input      : RawData/
+ Output     : outputs
+ Audit      : audit
+============================================================
+```
+
+Confirms the script has started and shows exactly which folder it is reading from and writing to.
+
+### File discovery tree
+
+```
+RawData  [depth requested: 2 │ deepest file: 0 level(s) │ 2 file(s) to process]
+├── 241212_Plate1_fucp_hpd3.csv
+└── 241212_Plate2_lyta_copb.csv
+
+  File tree saved to: audit/file_tree.txt
+```
+
+Lists every CSV file the script found and will process. Check this carefully - if a file you expected is missing, it may be in the wrong folder or have the wrong extension.
+
+### Standards check (all plates pass)
+
+```
+------------------------------------------------------------
+ Standards check: all 2 plate(s) passed
+ Expected: Std-001, Std-002, Std-003, Std-004, Std-005, Std-006
+------------------------------------------------------------
+```
+
+This is the ideal outcome. If the standards check fails for one or more plates, see [Interactive decision points] below.
+
+### Skip completed plates prompt
+
+```
+------------------------------------------------------------
+ The following 1 of 2 plate(s) already have both output CSVs:
+   - 241212_Plate1_fucp_hpd3
+------------------------------------------------------------
+ Skip these plates and process only the remaining ones?
+ Enter Y to skip, N to reprocess all: _
+```
+
+**Y (skip):** The already-processed plate is left as-is and only the new plate is processed.
+**N (reprocess):** All plates are processed again from scratch.
+
+### Per-plate processing
+
+```
+[1/2] 241212_Plate1_fucp_hpd3.csv ════════════════════
+  Import          │ header at row 19 │ 192 data rows
+  LOD             │ Hi=2000     Lo=0.012    │ targets: fucp, hpd3
+> Step 0 │ Removing unnamed samples ...
+  Step 0 │ done │ 0 removed
+> Step 1 │ SQ adjustment (below LOD_Lo -> LOD_Lo / 2) ...
+  Step 1 │ done │ 4 adjusted
+> Step 2 │ Removing matched patterns (Std, NTC, Neg) ...
+  Step 2 │ done │ 84 removed
+> Step 3 │ Sample-name consistency check ...
+  Step 3 │ done │ 0 group(s) with mismatched names
+> Step 4 │ Replicate statistics and review flags ...
+  Step 4 │ done │ 2 replicate group(s) flagged for review
+> Step 5 │ Assembling output tables ...
+  Step 5 │ done
+────────────────────────────────────────────────────────────
+  Output  │ 108 rows out │ 2 for review │ 1.3s │ 0.012s/row
+```
+
+Key things to check:
+
+- **Import** - confirms the Well header was found and shows the row count before cleaning
+- **LOD** - confirms which targets were found and which LOD values are being applied
+- **Step 1** - shows how many SQ values were below LOD Lo; a high number may indicate poor assay sensitivity
+- **Step 2** - shows how many rows were removed (standards, NTCs, negative controls)
+- **Step 4** - shows how many replicate groups were flagged for review
+- **Output** - final row count and review count
+
+### Run summary
+
+```
+============================================================
+ Run complete
+============================================================
+ plate                      status      rows_in rows_out review elapsed_s
+ 241212_Plate1_fucp_hpd3    processed   192     108      4      1.3
+ 241212_Plate2_lyta_copb    processed   192     110      0      1.1
+
+  Total rows processed : 218
+  Total plate time     : 2.4s
+  Mean rate            : 0.011s/row
+```
+
+## Interactive decision points
+
+### Standards check failure
+
+If one or more plates are missing expected standard wells, the script prints a summary and offers options. Missing standards are classified into three scenarios:
+
+| Scenario | What it means | Script label |
+|----------|--------------|--------------|
+| Both endpoints present, 1-2 interior standards missing | Std-001 and Std-006 are present. The LOD boundaries can still be inferred. | `[MIDDLE ONLY]` |
+| Both endpoints present, 3+ interior standards missing | As above but more standards are missing. | `[MIDDLE ONLY - >2 missing]` |
+| An endpoint standard is missing | Std-001 (defines LOD Hi) or Std-006 (defines LOD Lo) is absent. | `[ENDPOINT MISSING]` |
+
+**Option S - Skip all failing plates:** The plates with missing standards are excluded from this run. Choose this if the plate run was compromised and the data should not be used.
+
+**Option M - Mixed handling (recommended for middle-only failures):** The script will ask you to confirm or adjust the LOD values for middle-only plates using a Y/N prompt. Plates missing an endpoint standard will require you to manually enter LOD values.
+
+For a plate with middle-only missing standards:
+
+```
+Targets : fucp
+LOD Hi  [normal = 2000 │ Std-001 present -> inferred; applies to all targets]
+-> Is LOD Hi = 2000 correct for this plate? [Y/n]: _
+```
+
+**Y:** Accept the standard LOD Hi value. Choose this if you have no reason to believe the standard curve behaved differently.
+**n:** Enter a different value. Use this only if you have inspected the standard curve in CFX Maestro and determined a different value is appropriate.
+
+**Option F - Force all plates through:** All failing plates are processed with manually entered LOD values for every plate.
+
+### Blank sample names
+
+If a plate has no sample names at all in the Sample column:
+
+```
+------------------------------------------------------------
+ Sample names check: 1 plate(s) have NO sample names
+------------------------------------------------------------
+  241212_Plate3_fucp
+    Rows    : 192
+    Content : Std-001, Std-002, ..., Unknown, NTC
+------------------------------------------------------------
+ Options:
+   S = Skip all   - exclude these plates from this run
+   C = Use Content column as Sample name for all these plates
+ Enter S or C: _
+```
+
+**Option S - Skip:** The plate is excluded from the run. Choose this if you want to add sample names before reprocessing.
+
+**Option C - Use Content column as Sample name:** The Content column is substituted for the missing Sample name. This is logged in the audit trail. Choose this only as a temporary measure.
+
+Once the cleaning pipeline has finished, continue to `vignette("consolidation", package = "qpcrpipeline")` to run Script 2.

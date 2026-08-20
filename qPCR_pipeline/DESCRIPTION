@@ -19,9 +19,12 @@ Imports:
     jsonlite,
     purrr
 Suggests:
+    knitr,
+    rmarkdown,
     testthat (>= 3.0.0),
     tibble
 Config/testthat/edition: 3
 LazyData: true
 Config/roxygen2/version: 8.1.0
 Roxygen: list(markdown = TRUE)
+VignetteBuilder: knitr
