@@ -15,43 +15,64 @@ knitr::opts_chunk$set(
 )
 ```
 
-This vignette covers `qpcr_consolidation.R` (Script 2), the resulting output files, and the audit log. Run `vignette("cleaning-pipeline", package = "qpcrpipeline")` first. For a full list of default values for every variable mentioned below, see `vignette("reference", package = "qpcrpipeline")`.
+This vignette covers `run_consolidation_pipeline()`, the resulting output files, and the audit log. Run `vignette("cleaning-pipeline", package = "qpcrpipeline")` first. For a full list of default values for every argument mentioned below, see `vignette("reference", package = "qpcrpipeline")` or `?run_consolidation_pipeline`.
 
-## Running the consolidation script
+## Running consolidation
 
-After the cleaning pipeline has finished, run the consolidation script (`qpcr_consolidation.R`). This reads all the cleaned CSV files from the `outputs` folder and assembles them into two Excel workbooks.
-
-### Step 1 - Check your settings (Section 1 of the script)
-
-**Input directory**
+After the cleaning pipeline has finished, run `run_consolidation_pipeline()`. This reads all the cleaned CSV files from the `outputs` folder and assembles them into two Excel workbooks.
 
 ```{r}
-input_dir <- "outputs/"
+library(qpcrpipeline)
+
+run_consolidation_pipeline(
+  input_dir = "outputs/",
+  consolidation_dir = "consolidated"
+)
 ```
 
-This should match the `output_dir` from the cleaning pipeline.
-
-**Output location**
+Or pipe directly from `run_cleaning_pipeline()`:
 
 ```{r}
-CONSOLIDATION_DIR <- "consolidated"
-ALL_OUT_PATH    <- file.path(CONSOLIDATION_DIR, "qpcr_all_samples.xlsx")
-REVIEW_OUT_PATH <- file.path(CONSOLIDATION_DIR, "qpcr_review_samples.xlsx")
+"RawData/" |>
+  run_cleaning_pipeline(output_dir = "outputs") |>
+  run_consolidation_pipeline(consolidation_dir = "consolidated")
 ```
 
-**Target alias mapping**
+## Key arguments
+
+### Input directory
 
 ```{r}
-TARGET_ALIASES <- list(
-  uni = c("uni", "universal", "univ")
+run_consolidation_pipeline(input_dir = "outputs/")
+```
+
+This should match `output_dir` from `run_cleaning_pipeline()`.
+
+### Output location
+
+```{r}
+run_consolidation_pipeline(
+  consolidation_dir = "consolidated",
+  all_out_path = NULL,     # defaults to consolidated/qpcr_all_samples.xlsx
+  review_out_path = NULL   # defaults to consolidated/qpcr_review_samples.xlsx
+)
+```
+
+Leave `all_out_path` and `review_out_path` as `NULL` to use the standard filenames inside `consolidation_dir`, or supply explicit paths to override them.
+
+### Target alias mapping
+
+```{r}
+run_consolidation_pipeline(
+  target_aliases = list(uni = c("uni", "universal", "univ"))
 )
 ```
 
 Treats `uni`, `universal`, and `univ` as the same target and consolidates them onto a single sheet named `uni`. You do not normally need to change this.
 
-### Step 2 - Run the script
+## Running from the example template
 
-Press **Ctrl+Shift+Enter** (or **Cmd+Shift+Enter** on Mac).
+If you used `use_qpcr_template()`, the generated `qpcr_pipeline.R` script already pipes `run_cleaning_pipeline()` into `run_consolidation_pipeline()`. Press **Ctrl+Shift+Enter** (or **Cmd+Shift+Enter** on Mac) to run the whole script.
 
 ### The output file conflict prompt
 
@@ -76,6 +97,12 @@ If the output Excel files already exist from a previous run:
 **A - Append:** New data from freshly processed plates is merged into the existing workbook. Duplicate rows are removed automatically. Use this when adding new plates to an ongoing experiment.
 
 **N - New file:** The existing workbook is kept and the new consolidation is saved under a different name. You will be prompted to enter a suffix, or press Enter to use a timestamp automatically.
+
+This prompt requires an interactive R session. See [Non-interactive use] below for what happens when `run_consolidation_pipeline()` is called from a script.
+
+### Non-interactive use
+
+If `run_consolidation_pipeline()` is called in a non-interactive session (e.g. via `Rscript`, a scheduled job, or `rmarkdown::render()`) and an output workbook already exists, the prompt above is skipped and the pipeline **defaults to O (overwrite)** without asking. If you're automating a run and want to preserve an existing workbook, set `all_out_path`/`review_out_path` to a new file path, or move/rename the existing workbook before running.
 
 ## Understanding your output files
 
@@ -117,7 +144,7 @@ For each plate CSV processed, two CSV files are written:
 
 ### Consolidated Excel workbooks (in the `consolidated/` folder)
 
-The consolidation script produces two Excel workbooks: `qpcr_all_samples.xlsx` and `qpcr_review_samples.xlsx`.
+`run_consolidation_pipeline()` produces two Excel workbooks: `qpcr_all_samples.xlsx` and `qpcr_review_samples.xlsx` (or the paths given via `all_out_path`/`review_out_path`).
 
 **Sheet layout:**
 
@@ -125,7 +152,7 @@ The consolidation script produces two Excel workbooks: `qpcr_all_samples.xlsx` a
 - Each subsequent sheet contains data for one target (e.g. `fucp`, `hpd3`, `lyta`, `uni`)
 - Each sheet is formatted as an Excel Table with auto-filters and a frozen header row
 
-**Additional columns added by the consolidation script:**
+**Additional columns added by the consolidation stage:**
 
 | Column | Description |
 |--------|-------------|
@@ -152,7 +179,7 @@ One row per QC decision made on every sample and target.
 | Column | Description |
 |--------|-------------|
 | `timestamp` | UTC date and time the decision was recorded |
-| `user` | Windows/Mac username of whoever ran the script |
+| `user` | Windows/Mac username of whoever ran the pipeline |
 | `run_id` | Unique identifier for the plate processing run (format: `YYYYMMDD_HHMMSS_platename`) |
 | `input_file` | The original plate CSV filename |
 | `sample_id` | The sample identifier the decision applies to |
@@ -161,21 +188,21 @@ One row per QC decision made on every sample and target.
 | `outcome` | Whether the rule was `applied`, `skipped`, or resulted in a `pass` |
 | `evidence` | Brief description of the values that led to the decision |
 | `source` | Always `R_script` |
-| `version` | Script version number |
+| `version` | Package version number |
 
 > **Practical use:** To review all decisions for a specific plate, filter the `input_file` column. To see only flagged results, filter `outcome` to `applied`. To compare two runs of the same plate, filter by `run_id`.
 
 ### `pcr_variables.csv`
 
-One row per configuration parameter used during each plate's processing run.
+One row per argument value used during each plate's processing run.
 
 | Column | Description |
 |--------|-------------|
-| `var_name` | Parameter name (e.g. `dCq_thr`, `lod_hi`, `lod_lo`, `rm_patterns`) |
-| `var_value` | The value of that parameter at the time of the run |
+| `var_name` | Argument name (e.g. `delta_cq_threshold`, `lod_hi`, `lod_lo`, `rm_patterns`) |
+| `var_value` | The value of that argument at the time of the run |
 | `var_class` | The R data type of the value |
 
-> **Practical use:** To verify what thresholds were applied to a historical plate run, filter by `run_id` and look at the `dCq_thr`, `lod_hi`, and `lod_lo` rows.
+> **Practical use:** To verify what thresholds were applied to a historical plate run, filter by `run_id` and look at the `delta_cq_threshold`, `lod_hi`, and `lod_lo` rows.
 
 ### `pcr_standards.csv`
 
@@ -193,16 +220,16 @@ One row per plate per run, recording the outcome of the standards check.
 
 ### `pcr_run_log.txt`
 
-A plain-text transcript of everything printed to the R console during the cleaning pipeline run. Overwritten each time the script runs.
+A plain-text transcript of everything printed to the R console during `run_cleaning_pipeline()`. Overwritten each time the pipeline runs.
 
-> **Note:** If the script exits with an error before completing, the log file may be left in an incomplete state. If subsequent console output stops appearing in RStudio, type `sink()` in the console and press Enter to restore normal output.
+> **Note:** If the pipeline exits with an error before completing, the log file may be left in an incomplete state. If subsequent console output stops appearing in RStudio, type `sink()` in the console and press Enter to restore normal output.
 
 ### `pcr_consolidation_log.txt`
 
-Equivalent to `pcr_run_log.txt` but for the consolidation script.
+Equivalent to `pcr_run_log.txt` but for `run_consolidation_pipeline()`.
 
 ### `file_tree.txt`
 
-A snapshot of the folder structure and file list discovered at the start of each cleaning pipeline run.
+A snapshot of the folder structure and file list discovered at the start of each `run_cleaning_pipeline()` run.
 
 If something doesn't look right, see `vignette("troubleshooting", package = "qpcrpipeline")`.

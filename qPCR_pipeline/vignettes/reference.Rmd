@@ -1,8 +1,8 @@
 ---
-title: "Reference: Variable and Target Defaults"
+title: "Reference: Argument and Target Defaults"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Reference: Variable and Target Defaults}
+  %\VignetteIndexEntry{Reference: Argument and Target Defaults}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -15,16 +15,14 @@ knitr::opts_chunk$set(
 )
 ```
 
-This vignette lists the default values for every configurable variable in the two pipeline scripts. For explanations and examples of how these variables are used, see `vignette("cleaning-pipeline", package = "qpcrpipeline")` and `vignette("consolidation", package = "qpcrpipeline")`.
+This vignette lists the default values for every argument to `run_cleaning_pipeline()` and `run_consolidation_pipeline()`, and the default target/LOD lookup tables shipped with the package. For explanations and examples of how these are used, see `vignette("cleaning-pipeline", package = "qpcrpipeline")` and `vignette("consolidation", package = "qpcrpipeline")`, or `?run_cleaning_pipeline` / `?run_consolidation_pipeline`.
 
-## qPCR cleaning pipeline
+## `run_cleaning_pipeline()`
 
-Script: `qpcr_cleaning_pipeline.R`
+### Arguments
 
-### Variables
-
-| Variable | Value |
-|----------|-------|
+| Argument | Default |
+|----------|---------|
 | `input_dir` | `"RawData/"` |
 | `file_pattern` | `"\\.csv$"` |
 | `files` | `NULL` |
@@ -34,7 +32,7 @@ Script: `qpcr_cleaning_pipeline.R`
 | `output_dir` | `"outputs"` |
 | `dec_log_path` | `"audit/pcr_decisions.csv"` |
 | `var_log_path` | `"audit/pcr_variables.csv"` |
-| `delta_cq_threshold` | `1.0` |
+| `delta_cq_threshold` | `1` |
 | `rm_patterns` | `c("Std", "NTC", "Neg")` |
 | `rm_columns` | `c("sample")` |
 | `enable_preview` | `FALSE` |
@@ -46,9 +44,21 @@ Script: `qpcr_cleaning_pipeline.R`
 | `std_force_lod` | `NULL` |
 | `std_log_path` | `"audit/pcr_standards.csv"` |
 | `run_log_path` | `"audit/pcr_run_log.txt"` |
-| `always_positive_targets` | `c("uni", "univ", "universal")` |
+| `always_positive_targets` | `DEFAULT_always_positive_targets` |
+| `target_lod` | `DEFAULT_target_lod` |
 
-### Targets
+`always_positive_targets` and `target_lod` default to two exported objects, listed below, rather than literal values - pass your own list or vector to override them.
+
+### `DEFAULT_always_positive_targets`
+
+```{r}
+DEFAULT_always_positive_targets
+#> [1] "uni"       "univ"      "universal"
+```
+
+### `DEFAULT_target_lod`
+
+`DEFAULT_target_lod` is a named list with two elements, `LOD_Hi` and `LOD_Lo`, each mapping target name spellings to their limit of detection:
 
 | Target | LOD Hi | LOD Lo | Included alternative names |
 |--------|--------|--------|------------------------------------|
@@ -61,29 +71,38 @@ Script: `qpcr_cleaning_pipeline.R`
 | `gyrb` | 2000 | 0.012 | |
 | `uni` | 200 | 0.0012 | univ, universal |
 
-## qPCR consolidation
+To add a new target, extend a copy of `DEFAULT_target_lod` and pass it via the `target_lod` argument:
 
-Script: `qpcr_consolidation.R`
+```{r}
+my_lod <- DEFAULT_target_lod
+my_lod$LOD_Hi$newgene <- 2000
+my_lod$LOD_Lo$newgene <- 0.012
 
-### Variables
+run_cleaning_pipeline(target_lod = my_lod)
+```
 
-| Variable | Value |
-|----------|-------|
+## `run_consolidation_pipeline()`
+
+### Arguments
+
+| Argument | Default |
+|----------|---------|
 | `input_dir` | `"outputs/"` |
-| `ALL_PATTERN` | `"_all_samples\\.csv$"` |
-| `REVIEW_PATTERN` | `"_review_samples\\.csv$"` |
-| `CONSOLIDATION_DIR` | `"consolidated"` |
-| `ALL_OUT_PATH` | `file.path(CONSOLIDATION_DIR, "qpcr_all_samples.xlsx")` |
-| `REVIEW_OUT_PATH` | `file.path(CONSOLIDATION_DIR, "qpcr_review_samples.xlsx")` |
-| `TABLE_STYLE` | `"TableStyleMedium2"` |
-| `FONT_NAME` | `"Arial"` |
-| `FONT_SIZE` | `10` |
-| `COL_WIDTH_MIN` | `10` |
-| `MAX_WRITE_TRIES` | `5` |
-| `WAIT_SECS` | `3` |
-| `UPDATE_TARGET_TO_CANONICAL` | `TRUE` |
-| `AUDIT_DIR` | `"audit/"` |
-| `CONSOLIDATION_LOG_PATH` | `"audit/pcr_consolidation_log.txt"` |
+| `all_pattern` | `"_all_samples\\.csv$"` |
+| `review_pattern` | `"_review_samples\\.csv$"` |
+| `consolidation_dir` | `"consolidated"` |
+| `all_out_path` | `NULL` (resolves to `consolidated/qpcr_all_samples.xlsx`) |
+| `review_out_path` | `NULL` (resolves to `consolidated/qpcr_review_samples.xlsx`) |
+| `table_style` | `"TableStyleMedium2"` |
+| `font_name` | `"Arial"` |
+| `font_size` | `10` |
+| `col_width_min` | `10` |
+| `max_write_tries` | `5` |
+| `wait_secs` | `3` |
+| `target_aliases` | `list(uni = c("uni", "universal", "univ"))` |
+| `update_target_to_canonical` | `TRUE` |
+| `audit_dir` | `"audit/"` |
+| `consolidation_log_path` | `"audit/pcr_consolidation_log.txt"` |
 
 ### Target aliases
 

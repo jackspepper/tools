@@ -1,8 +1,8 @@
 ---
-title: "Running the Cleaning Pipeline (Script 1)"
+title: "Running the Cleaning Pipeline"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Running the Cleaning Pipeline (Script 1)}
+  %\VignetteIndexEntry{Running the Cleaning Pipeline}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -15,26 +15,46 @@ knitr::opts_chunk$set(
 )
 ```
 
-This vignette covers `qpcr_cleaning_pipeline.R`, the first script in the pipeline. See `vignette("qpcrpipeline")` first if you haven't set up your project folder or checked your file naming conventions. For a full list of default values for every variable mentioned below, see `vignette("reference", package = "qpcrpipeline")`.
+This vignette covers `run_cleaning_pipeline()`, the first stage in the pipeline. See `vignette("qpcrpipeline")` first if you haven't set up your project folder or checked your file naming conventions. For a full list of default values for every argument mentioned below, see `vignette("reference", package = "qpcrpipeline")` or `?run_cleaning_pipeline`.
 
 ## Overview
 
-The cleaning pipeline (`qpcr_cleaning_pipeline.R`) is the first script to run. It reads your raw plate CSV files, applies quality control checks, and writes cleaned output files ready for the consolidation step.
+`run_cleaning_pipeline()` reads your raw plate CSV files, applies quality control checks, and writes cleaned output files ready for the consolidation stage.
 
-## Step 1 - Check your settings (Section 1 of the script)
+```{r}
+library(qpcrpipeline)
+
+run_cleaning_pipeline(
+  input_dir = "RawData/",
+  output_dir = "outputs",
+  delta_cq_threshold = 1.0,
+  n_standards = 6,
+  skip_completed = TRUE
+)
+```
+
+The function invisibly returns `output_dir`, so it can be piped directly into `run_consolidation_pipeline()`:
+
+```{r}
+"RawData/" |>
+  run_cleaning_pipeline(output_dir = "outputs") |>
+  run_consolidation_pipeline(consolidation_dir = "consolidated")
+```
+
+## Key arguments
 
 ### Input directory
 
 ```{r}
-input_dir <- "RawData/"
+run_cleaning_pipeline(input_dir = "RawData/")
 ```
 
-This tells the script where to look for your plate CSV files. If you are following the recommended project folder structure, you do not need to change this.
+Tells the pipeline where to look for your plate CSV files. If you are following the recommended project folder structure, you do not need to change this.
 
 ### Delta Cq threshold
 
 ```{r}
-delta_cq_threshold <- 1.0
+run_cleaning_pipeline(delta_cq_threshold = 1.0)
 ```
 
 Controls how large a difference between duplicate Cq values is acceptable. The default of 1.0 means that if your two replicates differ by more than 1 Cq cycle, the pair is flagged for review. This is a commonly used MIQE-aligned threshold.
@@ -42,28 +62,32 @@ Controls how large a difference between duplicate Cq values is acceptable. The d
 ### Skip completed plates
 
 ```{r}
-skip_completed <- TRUE
+run_cleaning_pipeline(skip_completed = TRUE)
 ```
 
-When `TRUE`, the script checks whether output files already exist for each plate before processing. If both output CSVs already exist, you will be asked whether to skip that plate or reprocess it.
+When `TRUE`, the pipeline checks whether output files already exist for each plate before processing. If both output CSVs already exist, you will be asked whether to skip that plate or reprocess it (see [Interactive decision points] below).
 
 ### Number of standards
 
 ```{r}
-n_standards <- 6
+run_cleaning_pipeline(n_standards = 6)
 ```
 
 The number of standard wells expected on each plate. Change this only if your standard curve uses a different number of points.
 
-## Step 2 - Check your LOD definitions (Section 2 of the script)
+### Target LOD definitions
 
-Section 2 defines the upper and lower limits of detection for each target. The script comes pre-configured with values for the targets used in your laboratory. You only need to edit this section if you are adding a new target that is not already listed.
+```{r}
+run_cleaning_pipeline(target_lod = DEFAULT_target_lod)
+```
 
-If the script stops with an error such as `Missing targets in LOD_Hi: [targetname]`, a new target needs to be added to Section 2.
+`target_lod` defines the upper and lower limits of detection for each target. The package ships with `DEFAULT_target_lod`, pre-configured with values for the targets used in your laboratory. You only need to supply a custom list if you are adding a new target that is not already covered.
 
-## Step 3 - Run the script
+If the pipeline stops with an error such as `Missing targets in LOD_Hi: [targetname]`, a new target needs to be added to your `target_lod` list, following the structure of `DEFAULT_target_lod` (see `vignette("reference", package = "qpcrpipeline")`).
 
-With the script open in RStudio, press **Ctrl+Shift+Enter** (Windows/Linux) or **Cmd+Shift+Enter** (Mac) to run the entire script. The script will begin immediately and print progress to the Console panel at the bottom of RStudio.
+## Running from the example template
+
+If you used `use_qpcr_template()`, the generated `qpcr_pipeline.R` script already calls `run_cleaning_pipeline()` with sensible defaults. Open it in RStudio and press **Ctrl+Shift+Enter** (Windows/Linux) or **Cmd+Shift+Enter** (Mac) to run the entire script. Progress prints to the Console panel at the bottom of RStudio.
 
 ## Console output walkthrough
 
@@ -82,7 +106,7 @@ With the script open in RStudio, press **Ctrl+Shift+Enter** (Windows/Linux) or *
 ============================================================
 ```
 
-Confirms the script has started and shows exactly which folder it is reading from and writing to.
+Confirms the pipeline has started and shows exactly which folder it is reading from and writing to.
 
 ### File discovery tree
 
@@ -94,7 +118,7 @@ RawData  [depth requested: 2 │ deepest file: 0 level(s) │ 2 file(s) to proce
   File tree saved to: audit/file_tree.txt
 ```
 
-Lists every CSV file the script found and will process. Check this carefully - if a file you expected is missing, it may be in the wrong folder or have the wrong extension.
+Lists every CSV file the pipeline found and will process. Check this carefully - if a file you expected is missing, it may be in the wrong folder or have the wrong extension.
 
 ### Standards check (all plates pass)
 
@@ -169,11 +193,13 @@ Key things to check:
 
 ## Interactive decision points
 
+`run_cleaning_pipeline()` pauses for input at three points if problems are found. All three prompts use `readline()` and require an interactive R session (see [Non-interactive use] below for what happens otherwise, e.g. inside `Rscript`, cron jobs, or `rmarkdown::render()`).
+
 ### Standards check failure
 
-If one or more plates are missing expected standard wells, the script prints a summary and offers options. Missing standards are classified into three scenarios:
+If one or more plates are missing expected standard wells, the pipeline prints a summary and offers options. Missing standards are classified into three scenarios:
 
-| Scenario | What it means | Script label |
+| Scenario | What it means | Console label |
 |----------|--------------|--------------|
 | Both endpoints present, 1-2 interior standards missing | Std-001 and Std-006 are present. The LOD boundaries can still be inferred. | `[MIDDLE ONLY]` |
 | Both endpoints present, 3+ interior standards missing | As above but more standards are missing. | `[MIDDLE ONLY - >2 missing]` |
@@ -181,7 +207,7 @@ If one or more plates are missing expected standard wells, the script prints a s
 
 **Option S - Skip all failing plates:** The plates with missing standards are excluded from this run. Choose this if the plate run was compromised and the data should not be used.
 
-**Option M - Mixed handling (recommended for middle-only failures):** The script will ask you to confirm or adjust the LOD values for middle-only plates using a Y/N prompt. Plates missing an endpoint standard will require you to manually enter LOD values.
+**Option M - Mixed handling (recommended for middle-only failures):** The pipeline will ask you to confirm or adjust the LOD values for middle-only plates using a Y/N prompt. Plates missing an endpoint standard will require you to manually enter LOD values.
 
 For a plate with middle-only missing standards:
 
@@ -218,4 +244,16 @@ If a plate has no sample names at all in the Sample column:
 
 **Option C - Use Content column as Sample name:** The Content column is substituted for the missing Sample name. This is logged in the audit trail. Choose this only as a temporary measure.
 
-Once the cleaning pipeline has finished, continue to `vignette("consolidation", package = "qpcrpipeline")` to run Script 2.
+## Non-interactive use
+
+If `run_cleaning_pipeline()` is called in a non-interactive session (e.g. via `Rscript`, a scheduled job, or `rmarkdown::render()`), each prompt above falls back to a fixed default rather than waiting for input:
+
+| Prompt | Non-interactive default |
+|--------|-------------------------|
+| Skip completed plates? | **N** - reprocess all plates |
+| Blank sample names | **S** - skip plates with no sample names |
+| Standards check failure | Requires `std_force_lod` to already be set - if it's `NULL`, the pipeline stops with an error rather than guessing LOD values |
+
+If you plan to run the pipeline unattended (e.g. from a scheduled script), set `std_force_lod` explicitly for any targets that might fail the standards check, or ensure your plates reliably pass standards before automating the run.
+
+Once the cleaning pipeline has finished, continue to `vignette("consolidation", package = "qpcrpipeline")` to run `run_consolidation_pipeline()`.

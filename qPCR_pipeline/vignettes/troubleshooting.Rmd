@@ -17,17 +17,27 @@ knitr::opts_chunk$set(
 
 ## Troubleshooting
 
-### Script will not start or package errors
+### Package installation problems
 
-**`Error: tidyverse is not installed`**
+**`Error: there is no package called 'qpcrpipeline'`**
 
-Run `install.packages("tidyverse")` in the R console and wait for it to complete, then try again.
+Install via `toolfetch` as described in `vignette("qpcrpipeline", package = "qpcrpipeline")`:
 
-**`Error: dplyr >= 1.1.0 required (installed: 1.0.5)`**
+```{r}
+install.packages("pak")
+pak::pkg_install("jackspepper/tools/toolfetch")
+toolfetch::tools_fetch(folder = "qPCR_pipeline", install = "auto", cleanup = TRUE)
+```
 
-Your installed version is too old. Run `install.packages("tidyverse")` to update.
+**`Error: there is no package called 'here'`**
 
-**Console output stops appearing after a script error**
+The example project template (from `use_qpcr_template()`) uses the `here` package to resolve paths reliably. Install it with:
+
+```{r}
+install.packages("here")
+```
+
+**Console output stops appearing after a pipeline error**
 
 Type the following in the console and press Enter:
 
@@ -35,7 +45,7 @@ Type the following in the console and press Enter:
 sink()
 ```
 
-This closes the log file connection the script opened. If the problem persists, restart RStudio.
+This closes the log file connection the pipeline opened. If the problem persists, restart RStudio.
 
 ### File discovery problems
 
@@ -45,7 +55,7 @@ Check:
 
 - Your working directory in RStudio is set to the project folder (**Session -> Set Working Directory -> To Source File Location**)
 - The `RawData` folder exists and contains `.csv` files
-- The `input_dir` setting in Section 1 matches your actual folder name (case-sensitive on Mac and Linux)
+- The `input_dir` argument to `run_cleaning_pipeline()` matches your actual folder name (case-sensitive on Mac and Linux)
 
 **`Could not find a row with 'Well' in column 1`**
 
@@ -63,11 +73,11 @@ A required column is missing or has an unexpected name. Most common cause: the p
 
 **`Error: Missing targets in LOD_Hi: newgene`**
 
-A target in your data is not defined in Section 2. Add the target's LOD values to Section 2 following the existing format.
+A target in your data is not defined in your `target_lod` list. Add the target's LOD values, following the structure of `DEFAULT_target_lod` (see `vignette("reference", package = "qpcrpipeline")`), and pass the updated list via the `target_lod` argument.
 
 **`Error: Different Hi values found: 200, 2000`**
 
-Your plate contains targets with different LOD values (e.g. `uni` and `fucp` on the same plate file). Split the plate's CSV data into separate files - one per LOD group - before running the script.
+Your plate contains targets with different LOD values (e.g. `uni` and `fucp` on the same plate file). Split the plate's CSV data into separate files - one per LOD group - before running the pipeline.
 
 ### Standards check failures
 
@@ -76,18 +86,26 @@ Your plate contains targets with different LOD values (e.g. `uni` and `fucp` on 
 Check:
 
 - Standards in the Content column must be labelled exactly as `Std-001` through `Std-006` (or `Std-01` through `Std-06`). Other formats such as `Standard 1`, `S1`, or `STD001` will not be recognised.
-- If your assay uses a different number of standards, update `n_standards` in Section 1.
-- If you run standards on a single plate and apply the curve to others, set `std_check_enabled <- FALSE` in Section 1 and provide LOD values via `std_force_lod`.
+- If your assay uses a different number of standards, update the `n_standards` argument.
+- If you run standards on a single plate and apply the curve to others, set `std_check_enabled = FALSE` and provide LOD values via `std_force_lod`.
+
+**Pipeline stops with an error about `std_force_lod` in a non-interactive session**
+
+`run_cleaning_pipeline()` cannot show the S/M/F prompt outside an interactive R session (e.g. `Rscript`, scheduled jobs, `rmarkdown::render()`). If a standards check fails under these conditions, you must set `std_force_lod` explicitly beforehand - otherwise the pipeline stops with an error rather than guessing LOD values. See [Non-interactive use](#non-interactive-use) below.
 
 ### Output file problems
 
 **`[write retry 1/5] Could not write to '...'`**
 
-The script retries up to 5 times. This usually means the output file is open in Excel. Close it and the script will succeed on the next retry.
+The pipeline retries up to 5 times (`max_write_tries`). This usually means the output file is open in Excel. Close it and the pipeline will succeed on the next retry.
 
 **`Error: No matching files found in outputs/`**
 
-Run the cleaning pipeline (Script 1) first, or check that `input_dir` in the consolidation script matches `output_dir` from the cleaning pipeline.
+Run `run_cleaning_pipeline()` first, or check that `input_dir` in `run_consolidation_pipeline()` matches `output_dir` from `run_cleaning_pipeline()`.
+
+**My existing workbook was overwritten without asking**
+
+If `run_consolidation_pipeline()` is called in a non-interactive session, it defaults to overwriting an existing workbook rather than prompting. See [Non-interactive use](#non-interactive-use) below.
 
 ### Unexpected results in the output
 
@@ -110,9 +128,22 @@ Expected in two situations:
 
 Check:
 
-- The target name in the CSV must match a name in Section 2 of the cleaning script
-- Check `TARGET_ALIASES` in the consolidation script if the target uses multiple spellings
+- The target name in the CSV must match a name in your `target_lod` list
+- Check the `target_aliases` argument to `run_consolidation_pipeline()` if the target uses multiple spellings
 - Target names are normalised to lowercase - look for the sheet under the lowercase version of the name
+
+## Non-interactive use
+
+Both pipeline functions call `readline()` at certain decision points, which only works in an interactive R session. If either function is run via `Rscript`, a scheduled job, or `rmarkdown::render()`, each prompt falls back to a fixed default instead of waiting for input:
+
+| Function | Prompt | Non-interactive default |
+|----------|--------|--------------------------|
+| `run_cleaning_pipeline()` | Skip completed plates? | **N** - reprocess all plates |
+| `run_cleaning_pipeline()` | Blank sample names | **S** - skip plates with no sample names |
+| `run_cleaning_pipeline()` | Standards check failure | Requires `std_force_lod` already set - otherwise the pipeline **stops with an error** |
+| `run_consolidation_pipeline()` | Output workbook already exists | **O** - overwrite |
+
+If you're automating the pipeline (e.g. via a scheduled script or CI), review this table and set the relevant arguments explicitly rather than relying on interactive prompts.
 
 ## Quick reference
 
@@ -120,11 +151,11 @@ Check:
 
 1. Export plate data from CFX Maestro as CSV (Quantification Results format, no structural modifications)
 2. Rename each file to `YYMMDD_PlateN_[targets].csv` and place in the `RawData/` folder
-3. Open `qpcr_cleaning_pipeline.R` in RStudio. Verify `input_dir` points to your `RawData` folder
-4. Press **Ctrl+Shift+Enter** to run Script 1. Respond to any interactive prompts
+3. Run `use_qpcr_template()` once per project, or open your existing `qpcr_pipeline.R`. Verify `input_dir` points to your `RawData` folder
+4. Run the script (**Ctrl+Shift+Enter**). Respond to any interactive prompts
 5. Check the run summary - confirm all plates show `processed` status and row counts look reasonable
-6. Open `qpcr_consolidation.R`. Verify `input_dir` is set to `outputs/`
-7. Press **Ctrl+Shift+Enter** to run Script 2. Choose O/A/N if prompted about existing workbooks
+6. Confirm `run_consolidation_pipeline()`'s `input_dir` is set to `outputs/`
+7. Respond to O/A/N if prompted about existing workbooks
 8. Open `qpcr_all_samples.xlsx` and `qpcr_review_samples.xlsx` from the `consolidated/` folder
 9. Review any rows in the review workbook and investigate flagged results before using them in your analysis
 
@@ -151,9 +182,9 @@ Check:
 
 ### Interactive prompts at a glance
 
-| Prompt | Options | Choose when |
-|--------|---------|-------------|
-| Skip completed plates? | Y = skip, N = reprocess all | Y when adding new plates to an existing experiment. N when you have changed data or settings. |
-| Standards check failed | S = skip, M = mixed handling, F = force all | S if plate data is unreliable. M if only interior standards are missing. F if you have manually verified LOD values. |
-| Blank sample names | S = skip, C = use Content as sample name | S if you want to add sample names first. C only as a temporary measure. |
-| Output workbook already exists | O = overwrite, A = append, N = new file | O for a fresh run. A when adding new plates. N to preserve the existing version. |
+| Prompt | Options | Choose when | Non-interactive default |
+|--------|---------|-------------|--------------------------|
+| Skip completed plates? | Y = skip, N = reprocess all | Y when adding new plates to an existing experiment. N when you have changed data or settings. | N |
+| Standards check failed | S = skip, M = mixed handling, F = force all | S if plate data is unreliable. M if only interior standards are missing. F if you have manually verified LOD values. | Errors unless `std_force_lod` is set |
+| Blank sample names | S = skip, C = use Content as sample name | S if you want to add sample names first. C only as a temporary measure. | S |
+| Output workbook already exists | O = overwrite, A = append, N = new file | O for a fresh run. A when adding new plates. N to preserve the existing version. | O |
