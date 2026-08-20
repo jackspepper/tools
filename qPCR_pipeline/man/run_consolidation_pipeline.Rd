@@ -57,7 +57,7 @@ run_consolidation_pipeline(
 \item{consolidation_log_path}{Plain-text transcript log path.}
 }
 \value{
-Invisibly returns the `consolidation_dir` path, allowing for piping.
+Invisibly returns the \code{consolidation_dir} path, allowing for piping.
 }
 \description{
 Gathers cleaned CSV output files into structured Excel workbooks.

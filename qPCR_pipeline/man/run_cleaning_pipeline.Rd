@@ -37,7 +37,7 @@ run_cleaning_pipeline(
 
 \item{files}{Optional: explicit character vector of file paths.}
 
-\item{search_depth}{How many subfolder levels to search within `input_dir`.}
+\item{search_depth}{How many subfolder levels to search within \code{input_dir}.}
 
 \item{tree_output}{Where to send the file tree: "console", "file", or "both".}
 
@@ -53,7 +53,7 @@ run_cleaning_pipeline(
 
 \item{rm_patterns}{Regex patterns for row removal.}
 
-\item{rm_columns}{Columns to apply `rm_patterns` against.}
+\item{rm_columns}{Columns to apply \code{rm_patterns} against.}
 
 \item{enable_preview}{Set to TRUE to print preview of matched rows before removing.}
 
@@ -78,7 +78,7 @@ run_cleaning_pipeline(
 \item{target_lod}{Limits of detection list.}
 }
 \value{
-Invisibly returns the `output_dir` path, allowing for piping.
+Invisibly returns the \code{output_dir} path, allowing for piping.
 }
 \description{
 Runs the MIQE-aligned qPCR cleaning and auditing pipeline on raw plate CSVs.

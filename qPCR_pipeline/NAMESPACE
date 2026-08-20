@@ -2,6 +2,7 @@
 
 export(DEFAULT_always_positive_targets)
 export(DEFAULT_target_lod)
+export(example_plate_path)
 export(run_cleaning_pipeline)
 export(run_consolidation_pipeline)
 export(use_qpcr_template)
