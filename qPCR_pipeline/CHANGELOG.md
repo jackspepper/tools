@@ -5,6 +5,7 @@
 ### Stripping down for repo consolidation
 - Stripped out standalone github repo requirements (such as Github actions) so this can be consolidated into jackspepper/tools repo as a tool.
 - The main repo [jackspepper/qPCR-pipeline](https://github.com/jackspepper/qPCR-pipeline) shall remain private as a legacy remainder of the scripts and initial packaging.
+- Updated naming name convention to be consistent with new repo (qpcr_pipeline)
 
 ## 0.3.0-dev
 

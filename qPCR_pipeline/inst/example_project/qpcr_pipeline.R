@@ -12,7 +12,7 @@
 #   pak::pkg_install("jackspepper/tools/toolfetch")
 #
 #   toolfetch::tools_fetch(
-#     folder = "qPCR-pipeline",
+#     folder = "qPCR_pipeline",
 #     install = "auto",
 #     cleanup = TRUE
 #   )
