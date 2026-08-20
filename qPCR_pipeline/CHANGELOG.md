@@ -1,55 +1,95 @@
 # Changelog
 
-## 0.3.1-package - current
+All notable changes to `qpcrpipeline` are documented in this file.
 
-### Stripping down for repo consolidation
-- Stripped out standalone github repo requirements (such as Github actions) so this can be consolidated into jackspepper/tools repo as a tool.
-- The main repo [jackspepper/qPCR-pipeline](https://github.com/jackspepper/qPCR-pipeline) shall remain private as a legacy remainder of the scripts and initial packaging.
-- Updated naming name convention to be consistent with new repo (qpcr_pipeline)
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+For the user-facing summary, see [`NEWS.md`](NEWS.md).
 
-## 0.3.0-dev
+## [0.3.2] - 2026-08-20
 
-### R Package Refactoring
-- Converted script-based repository into an installable R package (`qpcrpipeline`).
-- Exposed core pipelines as exportable functions: `run_cleaning_pipeline()` and `run_consolidation_pipeline()`.
-- Designed pipeline functions to return directory paths to enable native R (`|>`) and `magrittr` (`%>%`) piping.
-- Added `use_qpcr_template()` to dynamically bootstrap new project folders with raw data structures and runner scripts.
-- Removed obsolete version check script (`R/get_version.R`) and replaced with standard R package versioning via `DESCRIPTION`.
-- Relocated example files to package assets (`inst/example_project/`).
+### Added
 
-### GitHub & Infrastructure
-- Created standard R `.gitignore` to prevent committing local RStudio caches, packages, logs, and biological datasets.
-- Created `qPCR-pipeline.Rproj` to automatically set the working directory to the project root in RStudio.
-- Added GitHub Actions CI/CD workflow (`.github/workflows/run-tests.yml`) to build, install, and test the package on example data.
-- Added templates for Bug Reports, Feature Requests, and Pull Requests.
+- `example_plate_path()` - returns the path to the packaged example CFX
+  Maestro export (`inst/extdata/examplePlate.csv`), with a `dir_only`
+  argument to return the containing directory instead. Exported and
+  documented (`man/example_plate_path.Rd`).
+- Five package vignettes shipped for the first time: `qpcrpipeline`,
+  `cleaning-pipeline`, `consolidation`, `reference`, `troubleshooting`.
+  `VignetteBuilder: knitr` and `Roxygen: list(markdown = TRUE)` added to
+  `DESCRIPTION` to support this.
 
-## 0.2.1
+### Changed
 
-### cleaning and consolidation pipeline
-- Adjusted scripts to be accessible via source(), allowing for use in automation scripts or as standalones
+- `DESCRIPTION`:
+  - `Version` bumped `0.3.1` -> `0.3.2`.
+  - `Suggests` gained `knitr`, `rmarkdown`, `here` (previously only
+    `testthat (>= 3.0.0)`, `tibble`).
+  - `Config/roxygen2/version` bumped `8.0.0` -> `8.1.0`.
+  - `LazyData: true` removed (no longer applicable - no lazy-loaded
+    dataset remains in `data/`).
+- `README.md`: install instructions changed from
+  `remotes::install_github("jackspepper/qPCR-pipeline")` to
+  `pak::pkg_install("jackspepper/tools/toolfetch")` +
+  `toolfetch::tools_fetch()`. Removed the "imported from another repo,
+  requires cleaning" migration notice and the CI/license badges.
+- `inst/example_project/qpcr_pipeline.R`:
+  - Install instructions in the header comment updated to match the new
+    `toolfetch`-based method.
+  - `input_dir`, `output_dir`, and `consolidation_dir` now resolved via
+    `here::here()` instead of bare relative paths.
+  - Variable naming made consistent (`CONSOLIDATION_DIR` -> lowercase
+    `consolidation_dir` throughout).
+- `man/run_cleaning_pipeline.Rd`, `man/run_consolidation_pipeline.Rd`:
+  cosmetic-only re-render of inline code spans (backtick -> `\code{}`),
+  no argument or behaviour changes.
 
-### qcr_pipeline.R
-- New script that allows for reproducible scripts that make variable adjustment easier without having to modify the script files themselves
-- A defaults.md file have been created to provide an easier reference for what the script defaults are when adjusting the pipeline script
+### Fixed
 
-### get_version.R
-- Script that gets the git version of the scripts used, defaulting to the CHANGELOG.md if offline, and unknown if either 
+- `inst/example_project/qpcr_pipeline.R`: the completion `message()` at
+  the end of the script referenced `OUTPUT_DIR` and `CONSOLIDATION_DIR`,
+  neither of which matched the actual variable names in scope
+  (`output_dir`, `CONSOLIDATION_DIR` used inconsistently elsewhere in the
+  file). This raised an "object not found" error immediately after the
+  pipeline had already completed successfully. Variable names are now
+  consistent throughout the script.
 
-### General
-- user_guide.md is presently outdated and will need updated prior to merging with main
+### Deprecated / Known issues
 
-## 0.2.0
+- `man/examplePlate.Rd` documents a lazy-loaded `examplePlate` dataset
+  that no longer exists: `data/examplePlate.csv` was removed and
+  replaced with `inst/extdata/examplePlate.csv` (see `example_plate_path()`
+  above), but the corresponding `.Rd` file was left behind. This will
+  produce an orphaned/incorrect help page (`?examplePlate`) until removed
+  in a future release.
 
-### Cleaning pipeline
-- Standards pre-check with interactive LOD override prompts
-- Sample names pre-check with Content-as-Sample fallback
-- RV_UNEXPECTED_NEG flag for always-positive targets
-- Skip-completed-plates option
-- Retry logic for network path writes
-- Run log saved to audit/
+### Internal
 
-### Consolidation
-- run_summary sheet with decision breakdown and sample count pivots
-- Target alias mapping (uni / univ / universal)
-- Append / overwrite / new-file prompt for existing workbooks
-- Repeat# column parsed from filename
+- `data/examplePlate.csv` removed; superseded by
+  `inst/extdata/examplePlate.csv`.
+- `build/vignette.rds` and `inst/doc/*` (rendered `.R`/`.Rmd`/`.html` per
+  vignette) now present as build artifacts from `VignetteBuilder: knitr`.
+- No changes to `tests/testthat/*` in this release - note that the new
+  `example_plate_path()` function currently has no accompanying test.
+
+---
+
+## [0.3.1] - 2026-08-20 (baseline for this changelog)
+
+### Changed
+
+- Cleaning and consolidation logic reworked from standalone scripts
+  (`qpcr_cleaning_pipeline.R`, `qpcr_consolidation.R`) into exported
+  package functions, `run_cleaning_pipeline()` and
+  `run_consolidation_pipeline()`.
+
+### Added
+
+- `use_qpcr_template()` - scaffolds a new project folder with the
+  expected structure and a ready-to-run example script.
+- `DEFAULT_target_lod`, `DEFAULT_always_positive_targets` - exported
+  default lookup tables for target LOD values and always-positive
+  target names.
+
+[0.3.2]: https://github.com/jackspepper/tools/tree/main/qPCR_pipeline
+[0.3.1]: https://github.com/jackspepper/tools/tree/main/qPCR_pipeline
