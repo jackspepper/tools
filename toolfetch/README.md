@@ -1,6 +1,6 @@
 # toolfetch
 
-Browse and download tools from [jackspepper/tools](https://github.com/jackspepper/tools) without cloning the whole repo. Folders that are R packages (i.e. contain a top-level `DESCRIPTION` file) can be installed automatically via `pak`. Fully scriptable — pass `folder` directly to skip all prompts.
+Browse and download tools from [jackspepper/tools](https://github.com/jackspepper/tools) without cloning the whole repo. Folders that are R packages (i.e. contain a top-level `DESCRIPTION` file) can be installed automatically via `pak`. Fetches from any branch, defaulting to `main`. Fully scriptable — pass `folder` directly to skip all prompts.
 
 ## Install
 
@@ -30,6 +30,12 @@ tools_fetch("96_well_plate_editor", subfolder = FALSE)
 # List folders without downloading
 tools_list()
 
+# List folders on a different branch
+tools_list(branch = "dev")
+
+# List available branches
+tools_branches()
+
 # Force a recheck of the repo (cache normally refreshes weekly)
 tools_refresh()
 tools_fetch(refresh = TRUE)
@@ -37,6 +43,51 @@ tools_fetch(refresh = TRUE)
 # Prefer download-directory.github.io in the browser instead
 tools_fetch("96_well_plate_editor", browse = TRUE)
 ```
+
+### Fetching from a branch
+
+By default, everything fetches from `main`. Pass `branch` to work against
+tools that are still in development on another branch:
+
+```r
+# Scripted: fetch a specific folder from a specific branch
+tools_fetch("toolfetch", branch = "dev")
+
+# List folders on that branch first
+tools_list(branch = "dev")
+
+# See what branches exist
+tools_branches()
+#>  1. dev
+#>  2. main  (default)
+#>  3. someone/feature-x
+```
+
+Calling `tools_fetch()` interactively with no arguments now shows a branch
+menu first, before the folder menu:
+
+```r
+tools_fetch()
+#> Available branches in jackspepper/tools:
+#>
+#>  1. dev
+#>  2. main  (default)
+#>
+#> Enter a number to select a branch (or Enter for 'main', 0 to cancel):
+```
+
+Press Enter to accept the default (`main`) and go straight to the usual
+folder menu, or pick a number to browse that branch's folders instead.
+
+Passing `folder` directly (the scripted path) skips the branch prompt
+entirely and uses `main` unless `branch` is also given — so existing
+scripted calls like `tools_fetch("toolfetch", force = TRUE)` are
+unaffected by this change.
+
+The folder listing is cached separately per branch, so checking `dev`
+doesn't invalidate or overwrite the cached listing for `main`, and each
+refreshes independently on its own weekly schedule (or via `refresh =
+TRUE`).
 
 ### Overwriting an existing download
 
@@ -102,6 +153,16 @@ tools_fetch(
   cleanup = TRUE,   # remove the downloaded source once installed
   quiet   = TRUE    # suppress status messages
 )
+
+# Same, but pinned to a specific branch instead of main
+tools_fetch(
+  "toolfetch",
+  branch  = "dev",
+  force   = TRUE,
+  install = "auto",
+  cleanup = TRUE,
+  quiet   = TRUE
+)
 ```
 
 Note: `tools_fetch()` errors immediately if `folder = NULL` and the session
@@ -116,6 +177,7 @@ prompt — always pass `folder` explicitly for scripted use.
 list(
   dest_dir   = "...",   # path the files were written to (may no longer
                          # exist on disk if cleaned_up is TRUE)
+  branch     = "main",  # branch actually fetched from
   is_package = TRUE,    # whether a top-level DESCRIPTION was found
   installed  = TRUE,    # whether pak install actually ran
   cleaned_up = TRUE     # whether dest_dir was deleted post-install
@@ -125,8 +187,11 @@ list(
 ## How it works
 
 - `tools_list()` / `tools_fetch()` check a local cache (`tools::R_user_dir("toolfetch", "cache")`)
-  of the repo's top-level folder names, refreshed automatically once a week.
-- `refresh = TRUE` (or `tools_refresh()`) forces an immediate recheck via the GitHub contents API.
+  of the repo's top-level folder names, refreshed automatically once a week. The cache is
+  keyed per branch, so `main` and `dev` (for example) are tracked independently.
+- `tools_branches()` similarly caches the repo's branch list, refreshed weekly.
+- `refresh = TRUE` (or `tools_refresh()`) forces an immediate recheck via the GitHub contents API,
+  for whichever branch was requested (default `main`).
 - `tools_fetch()` downloads the chosen folder's files directly (recursively) via the GitHub
   contents API — no token needed for this public repo, no browser required.
 - Package detection (top-level `DESCRIPTION` file) is determined from the same file listing
