@@ -2,11 +2,11 @@
 % Please edit documentation in R/cache.R
 \name{tf_cache_path}
 \alias{tf_cache_path}
-\title{Path to the local cache file}
+\title{Path to the local cache file for a given branch's folder listing}
 \usage{
-tf_cache_path()
+tf_cache_path(branch = NULL)
 }
 \description{
-Path to the local cache file
+Path to the local cache file for a given branch's folder listing
 }
 \keyword{internal}

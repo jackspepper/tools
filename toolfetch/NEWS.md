@@ -1,3 +1,26 @@
+# toolfetch 0.4.0
+
+## New features
+
+* All fetching/listing functions gain a `branch` argument, so tools can be
+  browsed and fetched from any branch of `jackspepper/tools` — not just the
+  default (`main`) — to test in-development work before it's merged.
+  `branch = NULL` (the default everywhere) resolves to `main`.
+  * `tools_list(branch = ...)`, `tools_refresh(branch = ...)`,
+    `tools_fetch(branch = ...)` all accept it.
+  * `tools_fetch()`'s interactive menu (when both `folder` and `branch` are
+    left `NULL`) now shows a branch picker first, defaulting to `main` on
+    Enter, before showing that branch's folder menu. Passing `folder`
+    explicitly (scripted use) skips the branch prompt entirely and just
+    uses `main` unless `branch` is also given.
+  * The folder-listing cache is now kept per-branch, so switching branches
+    doesn't invalidate or clobber the cache for other branches.
+* New `tools_branches()` lists branches in `jackspepper/tools`, with the
+  same caching/`refresh` behaviour as `tools_list()`. The default branch is
+  marked in the printed output.
+* `tools_fetch()`'s return list gains `branch` (character), the branch
+  actually fetched from.
+
 # toolfetch 0.3.0
 
 ## New features

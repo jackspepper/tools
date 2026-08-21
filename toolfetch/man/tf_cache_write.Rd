@@ -2,11 +2,11 @@
 % Please edit documentation in R/cache.R
 \name{tf_cache_write}
 \alias{tf_cache_write}
-\title{Write the cache to disk}
+\title{Write the folder-list cache for a branch to disk}
 \usage{
-tf_cache_write(folders)
+tf_cache_write(folders, branch = NULL)
 }
 \description{
-Write the cache to disk
+Write the folder-list cache for a branch to disk
 }
 \keyword{internal}

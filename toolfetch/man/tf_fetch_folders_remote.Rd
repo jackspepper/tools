@@ -4,7 +4,11 @@
 \alias{tf_fetch_folders_remote}
 \title{Query the GitHub contents API for top-level folders in the repo}
 \usage{
-tf_fetch_folders_remote()
+tf_fetch_folders_remote(branch = NULL)
+}
+\arguments{
+\item{branch}{Character. Branch to list folders on. \code{NULL} uses the
+default branch (see \code{tf_repo()}).}
 }
 \description{
 Query the GitHub contents API for top-level folders in the repo

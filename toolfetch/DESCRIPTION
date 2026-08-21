@@ -1,6 +1,6 @@
 Package: toolfetch
 Title: Browse and Install Tools from jackspepper/tools
-Version: 0.3.0
+Version: 0.4.0
 Authors@R: person("Jack", "Pepper", email = "jack.pepper@thekids.org.au", role = c("aut", "cre"))
 Description: Lists top-level tool folders in the jackspepper/tools GitHub
     repository, lets the user pick one interactively (or specify one
@@ -13,11 +13,12 @@ Description: Lists top-level tool folders in the jackspepper/tools GitHub
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-Imports:
-    httr2,
-    utils
-Suggests:
-    pak,
-    testthat (>= 3.0.0)
+Imports: httr2, utils
+Suggests: pak, testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.0
+NeedsCompilation: no
+Packaged: 2026-08-21 02:28:44 UTC; JPepper
+Author: Jack Pepper [aut, cre]
+Maintainer: Jack Pepper <jack.pepper@thekids.org.au>
+Depends: R (>= 4.1.0)

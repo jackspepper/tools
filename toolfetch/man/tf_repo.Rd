@@ -7,6 +7,6 @@
 tf_repo()
 }
 \description{
-Repo configuration
+\code{branch} is the default branch used when none is supplied elsewhere.
 }
 \keyword{internal}
