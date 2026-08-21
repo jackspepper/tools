@@ -1,0 +1,244 @@
+name: Enforce Tool Versioning
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate-versions:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+
+      - name: Validate tool versions
+        id: validation
+        shell: bash
+        run: |
+          set +e
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          FAILED=0
+          WARNINGS=0
+
+          {
+            echo "# Tool Version Validation"
+            echo ""
+          } > report.md
+
+          for dir in */ ; do
+
+            TOOL="${dir%/}"
+
+            case "$TOOL" in
+              .github|docs|renv)
+                continue
+                ;;
+            esac
+
+            CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- "$TOOL" || true)
+
+            [ -z "$CHANGED_FILES" ] && continue
+
+            echo "Checking $TOOL"
+
+            #
+            # R PACKAGE
+            #
+            if [ -f "$TOOL/DESCRIPTION" ]; then
+
+              TYPE="R Package"
+
+              VERSION_RELEVANT=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
+                "$TOOL/R" \
+                "$TOOL/src" \
+                "$TOOL/inst" \
+                "$TOOL/data" \
+                "$TOOL/NAMESPACE" \
+                "$TOOL/DESCRIPTION" || true)
+
+              [ -z "$VERSION_RELEVANT" ] && continue
+
+              OLD_VERSION=$(
+                git show "$BASE_SHA:$TOOL/DESCRIPTION" 2>/dev/null |
+                grep '^Version:' |
+                awk '{print $2}'
+              )
+
+              NEW_VERSION=$(
+                grep '^Version:' "$TOOL/DESCRIPTION" |
+                awk '{print $2}'
+              )
+
+            #
+            # STANDALONE TOOL
+            #
+            elif [ -f "$TOOL/VERSION" ]; then
+
+              TYPE="Standalone Tool"
+
+              VERSION_RELEVANT=$(echo "$CHANGED_FILES" \
+                | grep -v "^${TOOL}/VERSION$" \
+                | grep -vi "readme" \
+                || true)
+
+              [ -z "$VERSION_RELEVANT" ] && continue
+
+              OLD_VERSION=$(git show "$BASE_SHA:$TOOL/VERSION" 2>/dev/null || true)
+              NEW_VERSION=$(tr -d '[:space:]' < "$TOOL/VERSION")
+
+            #
+            # UNVERSIONED TOOL (WARNING ONLY)
+            #
+            else
+
+              WARNINGS=$((WARNINGS + 1))
+
+              {
+                echo "## Warning $TOOL"
+                echo ""
+                echo "Changes detected, but neither a \`DESCRIPTION\` nor a \`VERSION\` file exists."
+                echo ""
+                echo "**Recommended action:**"
+                echo ""
+                echo "- Add a \`VERSION\` file"
+                echo "- Start with \`0.1.0\` or \`0.1.0.9000\`"
+                echo "- Increment the version for future functional changes"
+                echo ""
+              } >> report.md
+
+              continue
+
+            fi
+
+            if [ -z "$OLD_VERSION" ] || [ -z "$NEW_VERSION" ]; then
+
+              FAILED=1
+
+              {
+                echo "## Failed $TOOL"
+                echo ""
+                echo "- Type: $TYPE"
+                echo "- Could not determine previous/current version."
+                echo ""
+              } >> report.md
+
+              continue
+
+            fi
+
+            export OLD_VERSION
+            export NEW_VERSION
+
+            Rscript -e '
+              old <- numeric_version(Sys.getenv("OLD_VERSION"))
+              new <- numeric_version(Sys.getenv("NEW_VERSION"))
+
+              if (!(new > old)) {
+                quit(status = 1)
+              }
+            '
+
+            RESULT=$?
+
+            if [ "$RESULT" -ne 0 ]; then
+
+              FAILED=1
+
+              {
+                echo "## Failed $TOOL"
+                echo ""
+                echo "- Type: $TYPE"
+                echo "- Previous Version: \`$OLD_VERSION\`"
+                echo "- Current Version: \`$NEW_VERSION\`"
+                echo ""
+                echo "**Files triggering validation:**"
+                echo ""
+                echo "\`\`\`"
+                echo "$VERSION_RELEVANT"
+                echo "\`\`\`"
+                echo ""
+                echo "**Required action:**"
+                echo ""
+
+                if [ "$TYPE" = "R Package" ]; then
+                  echo "- Increment the \`Version:\` field in \`DESCRIPTION\`"
+                else
+                  echo "- Increment the value in the \`VERSION\` file"
+                fi
+
+                echo ""
+              } >> report.md
+
+            else
+
+              {
+                echo "## Passed $TOOL"
+                echo ""
+                echo "- Type: $TYPE"
+                echo "- Previous Version: \`$OLD_VERSION\`"
+                echo "- Current Version: \`$NEW_VERSION\`"
+                echo ""
+              } >> report.md
+
+            fi
+
+          done
+
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            echo "failed=$FAILED"
+            echo "warnings=$WARNINGS"
+            echo "report<<EOF"
+            cat report.md
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$FAILED" -eq 1 ]; then
+            exit 1
+          fi
+
+      - name: Comment on PR when warnings or failures exist
+        if: always() && (steps.validation.outputs.failed == '1' || steps.validation.outputs.warnings != '0')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const failed = "${{ steps.validation.outputs.failed }}" === "1";
+            const warnings = Number("${{ steps.validation.outputs.warnings }}");
+            const report = `${{ steps.validation.outputs.report }}`;
+
+            let title;
+
+            if (failed) {
+              title = "## Tool Version Validation Failed";
+            } else {
+              title = "## Tool Version Validation Warnings";
+            }
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `${title}
+
+            ${report}
+
+            ### Notes
+
+            - R packages are versioned via the \`Version:\` field in \`DESCRIPTION\`
+            - Standalone tools are versioned via a \`VERSION\` file
+ 
