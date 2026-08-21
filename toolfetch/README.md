@@ -74,10 +74,10 @@ tools_fetch("mypkg", install = "auto")
 tools_fetch("mypkg", install = "never")
 ```
 
-### Cleaning up after install
+### Cleaning up after package install
 
 If you only wanted the package installed (not the downloaded source kept
-around), pass `cleanup = TRUE`. This deletes `dest_dir` after a successful
+around), pass `cleanup = TRUE` (default behaviour). This deletes `dest_dir` after a successful
 `pak` install — the package remains installed in your R library, but the
 downloaded folder is removed:
 
