@@ -1,0 +1,64 @@
+---
+title: "IncuCyte Confluency Report — Mini"
+subtitle: "Stripped-down view: plate heatmaps only"
+date: today
+format:
+  html:
+    toc: true
+    embed-resources: true
+    df-print: paged
+    code-fold: true
+    code-summary: "Show code"
+---
+
+```{r read-chunks, include=FALSE}
+knitr::read_chunk("IncuCyte_Confluency_Report.qmd")
+```
+
+This is a stripped-down view of `IncuCyte_Confluency_Report.qmd`, re-using the same setup, parsing, and configuration chunks but showing only the sections included below. Edit **Study configuration** and **Exclusions** here exactly as in the full report — the underlying code is shared, not duplicated.
+
+To include or drop a section, add or remove its chunk (matching the same `{r label}` from the main report) below. Any chunk in the main report can be pulled in this way, in any order, as long as the chunks it depends on run first.
+
+## Setup
+
+```{r setup}
+```
+
+## Parse data
+
+```{r parse}
+```
+
+## Study configuration
+
+```{r stage-config}
+```
+
+## Exclusions
+
+```{r exclusions}
+```
+
+```{r flag-range}
+```
+
+## Plate heatmaps
+
+```{r heatmap, fig.width=12, fig.height=6}
+```
+
+## Flagged wells heatmap
+
+```{r flag-heatmap, fig.width=12, fig.height=6}
+```
+
+## Assay stage comparison
+
+```{r stage-compare-wide}
+```
+
+```{r stage-compare-plate-summary}
+```
+
+```{r stage-compare-heatmap, fig.width=12, fig.height=6}
+```
