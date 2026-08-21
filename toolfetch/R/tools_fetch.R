@@ -14,10 +14,12 @@ fs_is_absolute <- function(path) {
 tf_download_folder <- function(
   folder_name,
   dest_dir,
+  branch = NULL,
   quiet = FALSE,
   force = FALSE
 ) {
   cfg <- tf_repo()
+  branch <- tf_resolve_branch(branch)
 
   fetch_entries <- function(path) {
     url <- sprintf(
@@ -25,7 +27,7 @@ tf_download_folder <- function(
       cfg$owner,
       cfg$repo,
       utils::URLencode(path),
-      cfg$branch
+      utils::URLencode(branch)
     )
     resp <- httr2::request(url) |>
       httr2::req_headers(Accept = "application/vnd.github+json") |>
@@ -149,6 +151,10 @@ tf_install_package <- function(dest_dir, quiet = FALSE) {
 #' @param folder Character. Skip the interactive menu and fetch this folder
 #'   name directly. If `NULL` (default), an interactive menu is shown.
 #'   Required for non-interactive/scripted use.
+#' @param branch Character. Branch to fetch from. If `NULL` (default), the
+#'   repo's default branch (`main`) is used. In an interactive session with
+#'   `folder = NULL`, a branch menu is shown before the folder menu.
+#'   Required (or left as `NULL` for `main`) for non-interactive/scripted use.
 #' @param subfolder Logical or character. If `TRUE` (default), files are
 #'   placed in a new subfolder named after the tool, under `base_dir`
 #'   (`<base_dir>/<folder>/...`). If `FALSE`, files are placed as-is directly
@@ -183,7 +189,8 @@ tf_install_package <- function(dest_dir, quiet = FALSE) {
 #' @param quiet Logical. Suppress status messages.
 #'
 #' @return Invisibly, a list with `dest_dir` (path written to — or removed,
-#'   if `cleanup = TRUE` and an install ran; see `cleaned_up`), `is_package`
+#'   if `cleanup = TRUE` and an install ran; see `cleaned_up`), `branch`
+#'   (character, the branch actually fetched from), `is_package`
 #'   (logical), `installed` (logical, whether `pak` install ran), and
 #'   `cleaned_up` (logical, whether `dest_dir` was deleted post-install).
 #' @export
@@ -211,9 +218,16 @@ tf_install_package <- function(dest_dir, quiet = FALSE) {
 #'
 #' # Force a recheck of the repo first
 #' tools_fetch(refresh = TRUE)
+#'
+#' # Fetch from a branch under active development
+#' tools_fetch("toolfetch", branch = "dev")
+#'
+#' # Interactive: pick a branch first, then a folder from that branch
+#' tools_fetch()
 #' }
 tools_fetch <- function(
   folder = NULL,
+  branch = NULL,
   subfolder = TRUE,
   base_dir = getwd(),
   refresh = FALSE,
@@ -228,7 +242,45 @@ tools_fetch <- function(
   }
   install <- match.arg(install)
 
-  folders <- tf_get_folders(force = refresh, quiet = quiet)
+  # Interactive branch menu: only offered when the caller didn't pin a
+  # branch AND is also letting the folder menu run interactively. If a
+  # `folder` was given explicitly, don't prompt for a branch either -
+  # default to main (or whatever was passed) to keep scripted-style calls
+  # (folder given, branch omitted) non-interactive even in an interactive
+  # session.
+  if (is.null(folder) && is.null(branch) && interactive()) {
+    branches <- tf_get_branches(force = refresh, quiet = quiet)
+    default_branch <- tf_repo()$branch
+
+    cat("Available branches in jackspepper/tools:\n\n")
+    for (i in seq_along(branches)) {
+      marker <- if (identical(branches[i], default_branch)) "  (default)" else ""
+      cat(sprintf("%2d. %s%s\n", i, branches[i], marker))
+    }
+    cat("\n")
+
+    b_choice <- readline(sprintf(
+      "Enter a number to select a branch (or Enter for '%s', 0 to cancel): ",
+      default_branch
+    ))
+
+    if (identical(b_choice, "0")) {
+      message("Cancelled.")
+      return(invisible(NULL))
+    }
+    if (identical(b_choice, "")) {
+      branch <- default_branch
+    } else {
+      b_choice_num <- suppressWarnings(as.integer(b_choice))
+      if (is.na(b_choice_num) || b_choice_num < 1 || b_choice_num > length(branches)) {
+        stop("Invalid selection: ", b_choice, call. = FALSE)
+      }
+      branch <- branches[b_choice_num]
+    }
+  }
+
+  branch <- tf_resolve_branch(branch)
+  folders <- tf_get_folders(branch = branch, force = refresh, quiet = quiet)
 
   if (is.null(folder)) {
     if (!interactive()) {
@@ -239,7 +291,7 @@ tools_fetch <- function(
       )
     }
 
-    cat("Available tools in jackspepper/tools:\n\n")
+    cat("Available tools in jackspepper/tools (branch: ", branch, "):\n\n", sep = "")
     for (i in seq_along(folders)) {
       cat(sprintf("%2d. %s\n", i, folders[i]))
     }
@@ -264,7 +316,11 @@ tools_fetch <- function(
       tf_repo()$owner,
       "/",
       tf_repo()$repo,
-      ". Run tools_list() to see available folders (or tools_list(refresh = TRUE)).",
+      " on branch '",
+      branch,
+      "'. Run tools_list(branch = '",
+      branch,
+      "') to see available folders (or with refresh = TRUE).",
       call. = FALSE
     )
   }
@@ -275,7 +331,7 @@ tools_fetch <- function(
       "https://github.com/%s/%s/tree/%s/%s",
       cfg$owner,
       cfg$repo,
-      cfg$branch,
+      branch,
       folder
     )
     dl_url <- sprintf(
@@ -324,10 +380,18 @@ tools_fetch <- function(
     }
   }
 
-  result <- tf_download_folder(folder, dest_dir, quiet = quiet, force = force)
+  result <- tf_download_folder(
+    folder,
+    dest_dir,
+    branch = branch,
+    quiet = quiet,
+    force = force
+  )
 
   if (!quiet) {
-    message("Done. '", folder, "' written to: ", result$dest_dir)
+    message(
+      "Done. '", folder, "' (branch: ", branch, ") written to: ", result$dest_dir
+    )
   }
 
   installed <- FALSE
@@ -382,6 +446,7 @@ tools_fetch <- function(
 
   invisible(list(
     dest_dir = result$dest_dir,
+    branch = branch,
     is_package = result$is_package,
     installed = installed,
     cleaned_up = cleaned_up

@@ -2,11 +2,11 @@
 % Please edit documentation in R/cache.R
 \name{tf_cache_read}
 \alias{tf_cache_read}
-\title{Read the cache from disk, if present}
+\title{Read the folder-list cache for a branch from disk, if present}
 \usage{
-tf_cache_read()
+tf_cache_read(branch = NULL)
 }
 \description{
-Read the cache from disk, if present
+Read the folder-list cache for a branch from disk, if present
 }
 \keyword{internal}

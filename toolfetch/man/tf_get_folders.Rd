@@ -4,7 +4,11 @@
 \alias{tf_get_folders}
 \title{Get the list of top-level folders, using cache unless stale or forced}
 \usage{
-tf_get_folders(force = FALSE, max_age_days = 7, quiet = FALSE)
+tf_get_folders(branch = NULL, force = FALSE, max_age_days = 7, quiet = FALSE)
+}
+\arguments{
+\item{branch}{Character. Branch to list folders on. \code{NULL} uses the
+default branch. Each branch is cached separately.}
 }
 \description{
 Get the list of top-level folders, using cache unless stale or forced

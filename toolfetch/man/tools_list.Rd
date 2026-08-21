@@ -4,9 +4,12 @@
 \alias{tools_list}
 \title{List available tool folders in jackspepper/tools}
 \usage{
-tools_list(refresh = FALSE, max_age_days = 7, quiet = FALSE)
+tools_list(branch = NULL, refresh = FALSE, max_age_days = 7, quiet = FALSE)
 }
 \arguments{
+\item{branch}{Character. Branch to list folders on. \code{NULL} (default)
+uses the repo's default branch (\code{main}).}
+
 \item{refresh}{Logical. Force a recheck against GitHub, ignoring the cache.}
 
 \item{max_age_days}{Numeric. Cache max age in days before it's considered
@@ -21,11 +24,12 @@ printed.
 \description{
 Returns the top-level folder names in the repo. Uses a local cache that
 refreshes automatically once a week; pass \code{refresh = TRUE} to force a
-recheck against GitHub right now.
+recheck against GitHub right now. Each branch is cached separately.
 }
 \examples{
 \dontrun{
 tools_list()
+tools_list(branch = "dev")
 tools_list(refresh = TRUE)
 }
 }

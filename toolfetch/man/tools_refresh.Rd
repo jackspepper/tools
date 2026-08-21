@@ -4,9 +4,11 @@
 \alias{tools_refresh}
 \title{Force a recheck of the repo, refreshing the local cache}
 \usage{
-tools_refresh(quiet = FALSE)
+tools_refresh(branch = NULL, quiet = FALSE)
 }
 \arguments{
+\item{branch}{Character. Branch to refresh. \code{NULL} uses the default branch.}
+
 \item{quiet}{Logical. Suppress status messages.}
 }
 \value{
@@ -18,5 +20,6 @@ Shorthand for \code{tools_list(refresh = TRUE)}.
 \examples{
 \dontrun{
 tools_refresh()
+tools_refresh(branch = "dev")
 }
 }

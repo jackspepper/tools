@@ -6,12 +6,13 @@
 \usage{
 tools_fetch(
   folder = NULL,
+  branch = NULL,
   subfolder = TRUE,
   base_dir = getwd(),
   refresh = FALSE,
   force = FALSE,
   install = c("ask", "auto", "never"),
-  cleanup = FALSE,
+  cleanup = TRUE,
   browse = FALSE,
   quiet = FALSE
 )
@@ -20,6 +21,11 @@ tools_fetch(
 \item{folder}{Character. Skip the interactive menu and fetch this folder
 name directly. If \code{NULL} (default), an interactive menu is shown.
 Required for non-interactive/scripted use.}
+
+\item{branch}{Character. Branch to fetch from. If \code{NULL} (default), the
+repo's default branch (\code{main}) is used. In an interactive session with
+\code{folder = NULL}, a branch menu is shown before the folder menu.
+Required (or left as \code{NULL} for \code{main}) for non-interactive/scripted use.}
 
 \item{subfolder}{Logical or character. If \code{TRUE} (default), files are
 placed in a new subfolder named after the tool, under \code{base_dir}
@@ -52,7 +58,7 @@ no prompt. Safe for non-interactive/scripted use.}
 \item{cleanup}{Logical. If \code{TRUE}, delete the downloaded folder
 (\code{dest_dir}) after a package install actually runs — since the package
 is installed into the R library at that point, the downloaded source
-is no longer needed. Default \code{FALSE}. Has no effect if the folder isn't
+is no longer needed. Default \code{TRUE}. Has no effect if the folder isn't
 a package, or if it is but \code{install} doesn't end up installing it.}
 
 \item{browse}{Logical. Instead of downloading directly, open
@@ -63,7 +69,8 @@ let the user download the zip manually.}
 }
 \value{
 Invisibly, a list with \code{dest_dir} (path written to — or removed,
-if \code{cleanup = TRUE} and an install ran; see \code{cleaned_up}), \code{is_package}
+if \code{cleanup = TRUE} and an install ran; see \code{cleaned_up}), \code{branch}
+(character, the branch actually fetched from), \code{is_package}
 (logical), \code{installed} (logical, whether \code{pak} install ran), and
 \code{cleaned_up} (logical, whether \code{dest_dir} was deleted post-install).
 }
@@ -96,5 +103,11 @@ tools_fetch(subfolder = "temp")
 
 # Force a recheck of the repo first
 tools_fetch(refresh = TRUE)
+
+# Fetch from a branch under active development
+tools_fetch("toolfetch", branch = "dev")
+
+# Interactive: pick a branch first, then a folder from that branch
+tools_fetch()
 }
 }
