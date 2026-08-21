@@ -396,11 +396,9 @@ scrolly_kable(plate_delta_summary, digits = 2)
 Well-level change between consecutive stages present in the data, in the order defined by `stage_levels`. Diverging scale centred on 0; grey tiles indicate a pair where one or both stages are missing for that well.
 
 ```{r stage-compare-heatmap, fig.width=12, fig.height=6}
-consecutive_names <- purrr::map_chr(consecutive_pairs, ~ paste(.x[2], "-", .x[1]))
-
 delta_plot_data <- delta_long |>
-  filter(comparison %in% consecutive_names) |>
-  mutate(comparison = factor(comparison, levels = consecutive_names)) |>
+  filter(comparison %in% delta_names) |>
+  mutate(comparison = factor(comparison, levels = delta_names)) |>
   mutate(row = str_extract(well, "^[A-Z]"),
          column = as.integer(str_extract(well, "\\d+$")),
          row = factor(row, levels = rev(sort(unique(row)))))
