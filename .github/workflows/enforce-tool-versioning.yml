@@ -1,0 +1,207 @@
+name: Enforce Tool Versioning
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate-versions:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+
+      - name: Validate tool versions
+        id: validation
+        shell: bash
+        run: |
+          set +e
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          FAILED=0
+          REPORT=""
+
+          echo "# Tool Version Validation" > report.md
+          echo "" >> report.md
+
+          for dir in */ ; do
+
+            TOOL="${dir%/}"
+
+            if [ -f "$TOOL/DESCRIPTION" ]; then
+
+              TYPE="R Package"
+
+              CHANGES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
+                "$TOOL/R" \
+                "$TOOL/src" \
+                "$TOOL/inst" \
+                "$TOOL/data" \
+                "$TOOL/NAMESPACE" \
+                "$TOOL/DESCRIPTION" || true)
+
+              [ -z "$CHANGES" ] && continue
+
+              OLD_VERSION=$(
+                git show "$BASE_SHA:$TOOL/DESCRIPTION" 2>/dev/null \
+                | grep '^Version:' \
+                | awk '{print $2}'
+              )
+
+              NEW_VERSION=$(
+                grep '^Version:' "$TOOL/DESCRIPTION" \
+                | awk '{print $2}'
+              )
+
+            elif [ -f "$TOOL/VERSION" ]; then
+
+              TYPE="Standalone Tool"
+
+              CHANGES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- "$TOOL" || true)
+
+              CHANGES=$(echo "$CHANGES" \
+                | grep -v README \
+                | grep -v "^${TOOL}/VERSION$" \
+                || true)
+
+              [ -z "$CHANGES" ] && continue
+
+              OLD_VERSION=$(git show "$BASE_SHA:$TOOL/VERSION" 2>/dev/null || true)
+              NEW_VERSION=$(cat "$TOOL/VERSION")
+
+            else
+              continue
+            fi
+
+            if [ -z "$OLD_VERSION" ] || [ -z "$NEW_VERSION" ]; then
+
+              FAILED=1
+
+              {
+                echo "## Failed $TOOL"
+                echo ""
+                echo "- Type: $TYPE"
+                echo "- Could not determine version."
+                echo ""
+              } >> report.md
+
+              continue
+
+            fi
+
+            export OLD_VERSION
+            export NEW_VERSION
+
+            Rscript -e '
+              old <- numeric_version(Sys.getenv("OLD_VERSION"))
+              new <- numeric_version(Sys.getenv("NEW_VERSION"))
+
+              if (!(new > old))
+                quit(status = 1)
+            '
+
+            RESULT=$?
+
+            if [ "$RESULT" -ne 0 ]; then
+
+              FAILED=1
+
+              {
+                echo "## Failed $TOOL"
+                echo ""
+                echo "- Type: $TYPE"
+                echo "- Version was not increased."
+                echo "- Previous: \`$OLD_VERSION\`"
+                echo "- Current: \`$NEW_VERSION\`"
+                echo ""
+                echo "Files triggering this check:"
+                echo "\`\`\`"
+                echo "$CHANGES"
+                echo "\`\`\`"
+                echo ""
+              } >> report.md
+
+            else
+
+              {
+                echo "## Passed $TOOL"
+                echo ""
+                echo "- Previous: \`$OLD_VERSION\`"
+                echo "- Current: \`$NEW_VERSION\`"
+                echo ""
+              } >> report.md
+
+            fi
+
+          done
+
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+
+          {
+            echo "report<<EOF"
+            cat report.md
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+          if [ "$FAILED" -eq 1 ]; then
+            exit 1
+          fi
+
+      - name: Comment on PR if validation fails
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const report = `${{ steps.validation.outputs.report }}`;
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body:
+            `Version validation failed.
+
+            A tool was modified without a valid version increase.
+
+            ${report}
+
+            ### How to fix
+
+            **R Packages**
+            - Update the \`Version:\` field in DESCRIPTION
+
+            **Standalone Tools**
+            - Update the VERSION file
+
+            Development versions such as:
+            - 1.0.0.9000
+            - 1.0.0.9001
+
+            are supported.`
+            });
+
+      - name: Comment on PR if validation passes
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body:
+                "Tool version validation passed."
+            });
