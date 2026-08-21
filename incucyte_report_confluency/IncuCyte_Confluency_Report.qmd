@@ -105,7 +105,25 @@ Settings that vary by study — edit these, then run the rest of the report unch
 # comparison section below; stage names not listed here are excluded from
 # that section only (they still appear in the summary/heatmaps above).
 # e.g. c("Baseline", "Endpoint") or c("Prefix", "Postfix", "Preassay", "Postassay")
+#
+# A single "..." entry can be used in place of (or in addition to) explicit
+# stage names. It expands to any imaging_type values found in the data that
+# aren't already listed elsewhere in stage_levels, inserted alphabetically at
+# that position. This lets you pin specific stages (e.g. a known first/last)
+# while auto-including whatever else shows up.
+# e.g. c("Prefix", "...", "Preassay") or c("...") or c("Baseline", "...")
 stage_levels <- c("Prefix", "Postfix", "Preassay")
+
+if ("..." %in% stage_levels) {
+  dots_pos <- which(stage_levels == "...")[1]
+  named_stages <- setdiff(stage_levels[stage_levels != "..."], NA)
+  other_stages <- sort(setdiff(unique(data$imaging_type), c(named_stages, NA)))
+  stage_levels <- append(
+    stage_levels[stage_levels != "..."],
+    other_stages,
+    after = dots_pos - 1
+  )
+}
 
 # Metric the stage comparison section focuses on. Must match a value in the
 # `metric` column exactly (see Per-plate summary for available values).
