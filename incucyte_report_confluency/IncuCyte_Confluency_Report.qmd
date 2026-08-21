@@ -317,6 +317,12 @@ stage_pairs <- Filter(function(p) p[1] != p[2], stage_pairs)
 
 delta_names <- purrr::map_chr(stage_pairs, ~ paste(.x[2], "-", .x[1]))
 
+comparison_lookup <- tibble(
+  comparison = delta_names,
+  from_stage = purrr::map_chr(stage_pairs, 1),
+  to_stage   = purrr::map_chr(stage_pairs, 2)
+)
+
 stage_deltas <- stage_wide
 for (i in seq_along(stage_pairs)) {
   from_stage <- stage_pairs[[i]][1]
@@ -330,6 +336,7 @@ for (i in seq_along(stage_pairs)) {
 ```{r stage-compare-well-table}
 well_delta_tbl <- stage_deltas |>
   select(date, plate, well, metric, all_of(stage_levels), all_of(delta_names)) |>
+  filter(rowSums(!is.na(across(c(Prefix, Postfix, Preassay)))) >= 2) |>
   arrange(date, plate, well, metric)
 
 scrolly_kable(well_delta_tbl, digits = 2)
@@ -341,23 +348,43 @@ Mean/SD of each stage-to-stage delta across wells, computed only from wells wher
 
 ```{r stage-compare-plate-summary}
 delta_long <- stage_deltas |>
-  select(date, plate, well, metric, all_of(delta_names)) |>
+  select(date, plate, well, metric, all_of(stage_levels), all_of(delta_names)) |>
   pivot_longer(
     cols = all_of(delta_names),
     names_to = "comparison",
     values_to = "delta"
   ) |>
-  filter(!is.na(delta))
+  filter(!is.na(delta)) |>
+  left_join(comparison_lookup, by = "comparison") |>
+  rowwise() |>
+  mutate(
+    from_value = get(from_stage),
+    to_value   = get(to_stage)
+  ) |>
+  ungroup()
 
 plate_delta_summary <- delta_long |>
   group_by(date, plate, metric, comparison) |>
   summarise(
     n_wells = n(),
+
+    mean_from = mean(from_value),
+    mean_to   = mean(to_value),
+
     mean_delta = mean(delta),
     sd_delta   = sd(delta),
     min_delta  = min(delta),
     max_delta  = max(delta),
+
     .groups = "drop"
+  ) |>
+  mutate(
+    reference = sprintf(
+      "%.1f → %.1f (Δ %.1f)",
+      mean_from,
+      mean_to,
+      mean_delta
+    )
   ) |>
   arrange(date, plate, metric, comparison)
 
