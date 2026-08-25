@@ -11,9 +11,15 @@ The package parses each plate section from a ProtoCOL 3 report into a structured
 
 ## Installation
 
+You can install the package directly from GitHub:
+
 ```r
-# To add here
+install.packages("pak")
+pak::pkg_install("jackspepper/tools/toolfetch")
+ 
+toolfetch::tools_fetch("protocol3_parse_counts", install = "auto")
 ```
+(`devtools::install_github("jackspepper/tools", subdir = "protocol3_parse_counts")` also works if you'd rather not add `pak`.)
 
 ## Dependencies
 
