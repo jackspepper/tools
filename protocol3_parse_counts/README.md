@@ -25,16 +25,25 @@ toolfetch::tools_fetch("protocol3_parse_counts", install = "auto")
 
 ## Dependencies
 
-- readODS
+- **Imports**: `readODS`
+- **Suggests**: `testthat (>= 3.0.0)`
 
 ## Example Data
 
-The package includes an example ProtoCOL 3 report:
+The package includes example ProtoCOL 3 reports:
 
 ```r
-file <- system.file(
+# Colony counts report example
+counts_file <- system.file(
   "extdata",
   "ExampleCounts.ods",
+  package = "protocol3Parser"
+)
+
+# Antibiotic zone report example
+abx_file <- system.file(
+  "extdata",
+  "ExampleAbxRes.ods",
   package = "protocol3Parser"
 )
 ```
@@ -175,25 +184,31 @@ res <- parse_protocol3_abx(file, exclude = "repeat", exclude_column = "Comments 
 
 If `exclude` is not supplied, both functions return the plain per-plate list as before (no `$included`/`$excluded` wrapper) — this is fully backward compatible with existing code.
 
-## Package Functions
+## Package Structure & Functions
 
-### parse_protocol3()
+### R Source Files
 
-Reads a ProtoCOL 3 colony counter `.ods` report and returns a structured list of plates.
+- `R/parse_protocol3.R`: High-level exported parser functions (`parse_protocol3()` and `parse_protocol3_abx()`).
+- `R/parse_helpers.R`: Shared internal block parser, post-processing, and plate filter helper functions.
+- `R/split_flags.R`: `split_flags()` utility function.
+- `R/tidy_protocol3.R`: `tidy_protocol3()` dataset flattening function.
 
-### parse_protocol3_abx()
+### Functions Overview
 
-Reads a ProtoCOL 3 antibiotic zone plate `.ods` report and returns a structured list of plates, with the same options (`name_components`, `split_flags`, `exclude`, `exclude_column`) as `parse_protocol3()`.
+- `parse_protocol3()`: Reads a ProtoCOL 3 colony counter `.ods` report and returns a structured list of plates.
+- `parse_protocol3_abx()`: Reads a ProtoCOL 3 antibiotic zone `.ods` report and returns a structured list of plates.
+- `split_flags()`: Splits space-separated `Flags` strings into lists of character vectors.
+- `tidy_protocol3()`: Converts a parsed plate list into a single long-format data frame.
 
-### split_flags()
+## Testing & Development
 
-Splits a space-separated `Flags` string (or vector of them) into a list of character vectors.
+Run the `testthat` suite locally using R:
 
-### tidy_protocol3()
+```r
+testthat::test_dir("tests/testthat")
+```
 
-Converts a parsed plate list (colony count or Abx) into a single long-format data frame. If filtering with `exclude`, pass `res$included` or `res$excluded`, not the wrapper itself.
-
-## Workflow
+## Example Workflow
 
 ```r
 file <- system.file(
