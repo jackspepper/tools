@@ -15,3 +15,6 @@ Roxygen: list(markdown = TRUE)
 Config/roxygen2/version: 8.1.0
 Imports: 
     readODS
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
