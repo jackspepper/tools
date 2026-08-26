@@ -1,6 +1,6 @@
 Package: protocol3Parser
 Title: ProtoCOL3 Counts Export Parser
-Version: 0.1.0.9000
+Version: 0.1.1
 Authors@R: 
     person("Jack", "Pepper", , "jack.pepper@thekids.org.au", role = c("aut", "cre"))
 Description: Import and tidy ProtoCOL 3 colony counter and antibiotic zone

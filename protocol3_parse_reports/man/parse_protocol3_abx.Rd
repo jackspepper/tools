@@ -10,7 +10,8 @@ parse_protocol3_abx(
   name_components = NULL,
   split_flags = TRUE,
   exclude = NULL,
-  exclude_column = "Plate Name"
+  exclude_column = "Plate Name",
+  include_version = TRUE
 )
 }
 \arguments{
@@ -37,6 +38,10 @@ reported to the console (e.g. \code{exclude = "_Exclude"}). Default \code{NULL}
 
 \item{exclude_column}{Which metadata field to search for \code{exclude}.
 Default \code{"Plate Name"}.}
+
+\item{include_version}{Logical. If \code{TRUE} (default), adds a \code{"Parser Version"}
+column (e.g. \code{"0.1.0.9000"}) to each plate's \code{metadata} data frame and
+attaches \code{"parser_version"} and \code{"parsed_at"} attributes to the returned list.}
 }
 \value{
 If \code{exclude} is \code{NULL}, a named list, one element per plate (named
@@ -48,8 +53,8 @@ frames. If \code{exclude} is supplied, a list with \verb{$included} and
 Reads a ProtoCOL 3 antibiotic zone plate report (.ods) and splits it into
 one entry per imaged plate, mirroring \code{\link[=parse_protocol3]{parse_protocol3()}} for colony
 counts. Each entry contains \code{metadata} (Plate Name, User, Created,
-Comments / Notes) and \code{data} (Sector, Zone Name, Zone Diameter (mm),
-Antibiotic Susceptibility, Flags).
+Comments / Notes, and optionally Parser Version) and \code{data} (Sector, Zone Name,
+Zone Diameter (mm), Antibiotic Susceptibility, Flags).
 }
 \examples{
 file <- system.file(

@@ -22,4 +22,4 @@ See the [toolfetch README](./toolfetch/README.md) for full usage.
 [ND2 Composite](./nd2_composite/) - A python script that converts .nd2 Z-stacks into Maximum Intensity Plots (MIP).\
 [Microscopy Presentation](./microscopy_presentation_pipeline/) - A Quarto document that builds a automatic presentation of microscopy Z-stack MIPs using python helper functions.\
 [qPCR Pipeline](./qPCR_pipeline/) - A qPCR pipeline for cleaning and identifying samples that require additional scrutiny.\
-[ProtoCOL3 Counts Parser](./protocol3_parse_counts) - A small package that parses region count data export from the ProtoCOL3 (v1.0.26.0) OPKA protocol.
+[ProtoCOL3 Reports Parser](./protocol3_parse_reports) - A small package that parses data report exports from the ProtoCOL3 (v1.0.26.0).
