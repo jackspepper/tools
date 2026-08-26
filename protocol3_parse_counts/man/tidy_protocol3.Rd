@@ -7,11 +7,14 @@
 tidy_protocol3(plates)
 }
 \arguments{
-\item{plates}{Output of \code{\link{parse_protocol3}}.}
+\item{plates}{Output of \code{\link{parse_protocol3}} or
+\code{\link{parse_protocol3_abx}} (the per-plate list; if you filtered
+with \code{exclude}, pass \code{result$included} or \code{result$excluded}, not the
+wrapper itself).}
 }
 \value{
 A single data frame: one row per Sector/well, with metadata columns
-joined in.
+joined in. If present, \code{Flags_list} is kept as a list-column.
 }
 \description{
 Combines every plate's \code{data} table into a single long-format data frame,

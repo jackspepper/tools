@@ -1,12 +1,14 @@
 Package: protocol3Parser
 Title: ProtoCOL3 Counts Export Parser
-Version: 0.0.0.9000
+Version: 0.1.0.9000
 Authors@R: 
     person("Jack", "Pepper", , "jack.pepper@thekids.org.au", role = c("aut", "cre"))
-Description: Import and tidy ProtoCOL 3 colony counter reports exported as
-    OpenDocument Spreadsheet (.ods) files. Functions are provided to parse
-    plate-level metadata and colony count data, extract structured components
-    from plate names, and combine results into analysis-ready data frames.
+Description: Import and tidy ProtoCOL 3 colony counter and antibiotic zone
+    reports exported as OpenDocument Spreadsheet (.ods) files. Functions are
+    provided to parse plate-level metadata and count/zone data, extract
+    structured components from plate names, split multi-value Flags into
+    vectors, exclude plates matching a string, and combine results into
+    analysis-ready data frames.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
