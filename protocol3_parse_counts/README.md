@@ -9,6 +9,7 @@ The package parses each plate section from a ProtoCOL 3 report into a structured
 - Optional parsing of plate-name components
 - Optional splitting of multi-value `Flags` into a vector per row
 - Optional exclusion of plates matching a string (e.g. `"_Exclude"` in the plate name)
+- Embedded package version and timestamp for auditability & provenance tracking
 - Conversion to a single tidy data frame for downstream analysis
 
 ## Installation
@@ -108,6 +109,23 @@ plates <- parse_protocol3(
 
 The extracted components are appended to each plate's metadata table.
 
+## Auditability & Provenance Tracking
+
+For audit compliance, both `parse_protocol3()` and `parse_protocol3_abx()` automatically record provenance metadata by default (`include_version = TRUE`):
+
+1. **Metadata Column**: A `"Parser Version"` column (e.g. `"0.1.0.9000"`) is added to each plate's metadata table, which is automatically included in `tidy_protocol3()` data frames.
+2. **Object Attributes**: Top-level attributes `parser_version` and `parsed_at` (timestamp) are attached to returned lists and tidy data frames:
+
+```r
+attr(plates, "parser_version")
+#> [1] "0.1.0.9000"
+
+attr(plates, "parsed_at")
+#> [1] "2026-08-26 14:44:00 AWST"
+```
+
+To disable metadata version embedding, pass `include_version = FALSE`.
+
 ## Creating a Tidy Data Frame
 
 Combine all plate data into a single analysis-ready table:
@@ -125,6 +143,7 @@ head(tidy_data)
 Each row represents a single sector/well and includes:
 
 - Plate metadata
+- Parser Version (if `include_version = TRUE`)
 - Parsed name components (if requested)
 - Sector
 - Colony Name

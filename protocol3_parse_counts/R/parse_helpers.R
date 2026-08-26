@@ -1,11 +1,28 @@
+#' Helper to retrieve the installed or development package version
+#' @keywords internal
+.get_parser_version <- function() {
+  tryCatch(
+    as.character(utils::packageVersion("protocol3Parser")),
+    error = function(e) {
+      desc <- system.file("DESCRIPTION", package = "protocol3Parser")
+      if (nzchar(desc) && file.exists(desc)) {
+        as.character(read.dcf(desc)[1, "Version"])
+      } else {
+        "0.1.0.9000"
+      }
+    }
+  )
+}
+
 #' Extract metadata rows from a plate block
 #'
 #' @param block Data frame representing a single plate block from raw ODS data.
+#' @param include_version Logical indicating whether to append `"Parser Version"`.
 #'
 #' @return A single-row data frame containing metadata fields ("Plate Name",
-#'   "User", "Created", "Comments / Notes").
+#'   "User", "Created", "Comments / Notes", and optionally "Parser Version").
 #' @keywords internal
-.extract_metadata <- function(block) {
+.extract_metadata <- function(block, include_version = TRUE) {
   meta_rows <- block[
     trimws(block[[1]]) %in%
       c("Plate Name", "User", "Created", "Comments / Notes"),
@@ -16,6 +33,11 @@
     stringsAsFactors = FALSE
   )
   rownames(metadata) <- NULL
+
+  if (isTRUE(include_version)) {
+    metadata[["Parser Version"]] <- .get_parser_version()
+  }
+
   metadata
 }
 
@@ -61,6 +83,11 @@
 #' @keywords internal
 .extract_data_block <- function(block, data_cols) {
   header_row <- which(trimws(block[[1]]) == "Sector")
+  if (length(header_row) == 0) {
+    stop("Could not find 'Sector' header row in plate block.")
+  }
+  header_row <- header_row[1]
+
   data_block <- block[(header_row + 1):nrow(block), seq_len(length(data_cols)), drop = FALSE]
   names(data_block) <- data_cols
 
@@ -105,10 +132,12 @@
 #' @param data_cols Character vector of data column names, in file order,
 #'   as they appear after "Sector" (used to detect the header row and to
 #'   size/name the data block). Must start with `"Sector"`.
+#' @param include_version Logical. If `TRUE` (default), appends `"Parser Version"` to metadata.
 #'
 #' @return A named list, one element per plate.
 #' @keywords internal
-.parse_protocol3_blocks <- function(file, sheet, name_components, data_cols) {
+.parse_protocol3_blocks <- function(file, sheet, name_components, data_cols,
+                                    include_version = TRUE) {
 
   raw <- readODS::read_ods(file, sheet = sheet, col_names = FALSE)
   raw <- as.data.frame(raw, stringsAsFactors = FALSE)
@@ -127,7 +156,7 @@
     end <- if (i < length(plate_starts)) plate_starts[i + 1] - 1 else nrow(raw)
     block <- raw[start:end, , drop = FALSE]
 
-    metadata <- .extract_metadata(block)
+    metadata <- .extract_metadata(block, include_version = include_version)
     metadata <- .split_plate_name(metadata, name_components)
     data_block <- .extract_data_block(block, data_cols)
 
@@ -194,9 +223,22 @@
 #' @return Parsed plates list, or list with `$included` and `$excluded`.
 #' @keywords internal
 .parse_protocol3_report <- function(file, sheet, name_components, data_cols,
-                                    num_cols, split_flags, exclude, exclude_column) {
-  plates <- .parse_protocol3_blocks(file, sheet, name_components, data_cols)
+                                    num_cols, split_flags, exclude, exclude_column,
+                                    include_version = TRUE) {
+  plates <- .parse_protocol3_blocks(
+    file = file,
+    sheet = sheet,
+    name_components = name_components,
+    data_cols = data_cols,
+    include_version = include_version
+  )
   plates <- lapply(plates, .post_process_plate, num_cols = num_cols, split_flags = split_flags)
   result <- .apply_exclusion(plates, exclude, exclude_column)
-  if (is.null(exclude)) result$included else result
+
+  out <- if (is.null(exclude)) result$included else result
+
+  attr(out, "parser_version") <- .get_parser_version()
+  attr(out, "parsed_at") <- Sys.time()
+
+  out
 }

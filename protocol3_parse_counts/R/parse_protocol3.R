@@ -2,8 +2,8 @@
 #'
 #' Reads a ProtoCOL 3 .ods report and splits it into one entry per imaged
 #' plate. Each entry contains two tables: `metadata` (Plate Name, User,
-#' Created, Comments / Notes) and `data` (Sector, Colony Name, Count / Frame,
-#' Flags).
+#' Created, Comments / Notes, and optionally Parser Version) and `data`
+#' (Sector, Colony Name, Count / Frame, Flags).
 #'
 #' @param file Path to the .ods report file.
 #' @param sheet Sheet name or index to read (default: 1, the first sheet).
@@ -23,6 +23,9 @@
 #'   (no filtering).
 #' @param exclude_column Which metadata field to search for `exclude`.
 #'   Default `"Plate Name"`.
+#' @param include_version Logical. If `TRUE` (default), adds a `"Parser Version"`
+#'   column (e.g. `"0.1.0.9000"`) to each plate's `metadata` data frame and
+#'   attaches `"parser_version"` and `"parsed_at"` attributes to the returned list.
 #'
 #' @return If `exclude` is `NULL`, a named list, one element per plate (named
 #'   after "Plate Name"), each a list with `$metadata` and `$data` data
@@ -50,7 +53,8 @@
 #' @export
 parse_protocol3 <- function(file, sheet = 1, name_components = NULL,
                              split_flags = TRUE, exclude = NULL,
-                             exclude_column = "Plate Name") {
+                             exclude_column = "Plate Name",
+                             include_version = TRUE) {
 
   .parse_protocol3_report(
     file = file,
@@ -60,7 +64,8 @@ parse_protocol3 <- function(file, sheet = 1, name_components = NULL,
     num_cols = "Count / Frame",
     split_flags = split_flags,
     exclude = exclude,
-    exclude_column = exclude_column
+    exclude_column = exclude_column,
+    include_version = include_version
   )
 }
 
@@ -69,8 +74,8 @@ parse_protocol3 <- function(file, sheet = 1, name_components = NULL,
 #' Reads a ProtoCOL 3 antibiotic zone plate report (.ods) and splits it into
 #' one entry per imaged plate, mirroring [parse_protocol3()] for colony
 #' counts. Each entry contains `metadata` (Plate Name, User, Created,
-#' Comments / Notes) and `data` (Sector, Zone Name, Zone Diameter (mm),
-#' Antibiotic Susceptibility, Flags).
+#' Comments / Notes, and optionally Parser Version) and `data` (Sector, Zone Name,
+#' Zone Diameter (mm), Antibiotic Susceptibility, Flags).
 #'
 #' @inheritParams parse_protocol3
 #'
@@ -98,7 +103,8 @@ parse_protocol3 <- function(file, sheet = 1, name_components = NULL,
 #' @export
 parse_protocol3_abx <- function(file, sheet = 1, name_components = NULL,
                                  split_flags = TRUE, exclude = NULL,
-                                 exclude_column = "Plate Name") {
+                                 exclude_column = "Plate Name",
+                                 include_version = TRUE) {
 
   .parse_protocol3_report(
     file = file,
@@ -111,6 +117,7 @@ parse_protocol3_abx <- function(file, sheet = 1, name_components = NULL,
     num_cols = "Zone Diameter (mm)",
     split_flags = split_flags,
     exclude = exclude,
-    exclude_column = exclude_column
+    exclude_column = exclude_column,
+    include_version = include_version
   )
 }
