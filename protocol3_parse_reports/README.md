@@ -20,9 +20,9 @@ You can install the package directly from GitHub:
 install.packages("pak")
 pak::pkg_install("jackspepper/tools/toolfetch")
  
-toolfetch::tools_fetch("protocol3_parse_counts", install = "auto")
+toolfetch::tools_fetch("protocol3_parse_reports", install = "auto")
 ```
-(`devtools::install_github("jackspepper/tools", subdir = "protocol3_parse_counts")` also works if you'd rather not add `pak`.)
+(`devtools::install_github("jackspepper/tools", subdir = "protocol3_parse_reports")` also works if you'd rather not add `pak`.)
 
 ## Dependencies
 
