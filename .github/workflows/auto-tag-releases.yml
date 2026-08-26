@@ -1,0 +1,134 @@
+name: Auto-Tag Releases
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      force_tag_all:
+        description: 'Create tags for all current tool versions if tag does not already exist'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  auto-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git Author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Detect Version Changes and Push Tags
+        shell: bash
+        run: |
+          set +e
+
+          BEFORE_SHA="${{ github.event.before }}"
+          HEAD_SHA="${{ github.sha }}"
+          FORCE_TAG_ALL="${{ inputs.force_tag_all || 'false' }}"
+
+          # If BEFORE_SHA is not provided or all zeros (e.g. branch creation or manual dispatch), fallback to HEAD~1
+          if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            BEFORE_SHA=$(git rev-parse HEAD~1 2>/dev/null || echo "")
+          fi
+
+          TAGS_CREATED=0
+          {
+            echo "# Auto-Tagging Summary"
+            echo ""
+          } > tag_report.md
+
+          for dir in */ ; do
+            TOOL="${dir%/}"
+
+            case "$TOOL" in
+              .github|docs|renv)
+                continue
+                ;;
+            esac
+
+            PKG_NAME=""
+            NEW_VERSION=""
+            OLD_VERSION=""
+            TYPE=""
+
+            #
+            # R PACKAGE
+            #
+            if [ -f "$TOOL/DESCRIPTION" ]; then
+              TYPE="R Package"
+              PKG_NAME=$(grep '^Package:' "$TOOL/DESCRIPTION" | head -n 1 | awk '{print $2}' | tr -d '[:space:]')
+              [ -z "$PKG_NAME" ] && PKG_NAME="$TOOL"
+              NEW_VERSION=$(grep '^Version:' "$TOOL/DESCRIPTION" | head -n 1 | awk '{print $2}' | tr -d '[:space:]')
+
+              if [ -n "$BEFORE_SHA" ]; then
+                OLD_VERSION=$(git show "$BEFORE_SHA:$TOOL/DESCRIPTION" 2>/dev/null | grep '^Version:' | head -n 1 | awk '{print $2}' | tr -d '[:space:]' || true)
+              fi
+
+            #
+            # STANDALONE TOOL
+            #
+            elif [ -f "$TOOL/VERSION" ]; then
+              TYPE="Standalone Tool"
+              PKG_NAME="$TOOL"
+              NEW_VERSION=$(tr -d '[:space:]' < "$TOOL/VERSION")
+
+              if [ -n "$BEFORE_SHA" ]; then
+                OLD_VERSION=$(git show "$BEFORE_SHA:$TOOL/VERSION" 2>/dev/null | tr -d '[:space:]' || true)
+              fi
+
+            #
+            # UNVERSIONED TOOL
+            #
+            else
+              continue
+            fi
+
+            [ -z "$NEW_VERSION" ] && continue
+
+            # Determine whether to create a tag
+            SHOULD_TAG=false
+            if [ "$FORCE_TAG_ALL" = "true" ]; then
+              SHOULD_TAG=true
+            elif [ "$NEW_VERSION" != "$OLD_VERSION" ]; then
+              SHOULD_TAG=true
+            fi
+
+            if [ "$SHOULD_TAG" = "true" ]; then
+              TAG_NAME="${PKG_NAME}-v${NEW_VERSION}"
+
+              echo "Checking tag for $PKG_NAME: $TAG_NAME"
+
+              # Check if tag already exists locally or remotely
+              if git rev-parse "refs/tags/$TAG_NAME" >/dev/null 2>&1; then
+                echo "Tag $TAG_NAME already exists locally, skipping."
+              elif git ls-remote --tags origin "refs/tags/$TAG_NAME" | grep -q "$TAG_NAME"; then
+                echo "Tag $TAG_NAME already exists on origin, skipping."
+              else
+                echo "Creating tag: $TAG_NAME (version: $NEW_VERSION)"
+                git tag -a "$TAG_NAME" -m "Release $PKG_NAME $NEW_VERSION"
+                git push origin "$TAG_NAME"
+                TAGS_CREATED=$((TAGS_CREATED + 1))
+                {
+                  echo "- **$PKG_NAME** ($TYPE): Tagged \`$TAG_NAME\` (Version \`$NEW_VERSION\`)"
+                } >> tag_report.md
+              fi
+            fi
+
+          done
+
+          if [ $TAGS_CREATED -eq 0 ]; then
+            echo "No new version tags were created." >> tag_report.md
+          fi
+
+          cat tag_report.md >> "$GITHUB_STEP_SUMMARY"
