@@ -47,6 +47,10 @@ source(script_path, echo = FALSE)
 out_dir <- here("output")
 dir.create(out_dir, showWarnings = FALSE)
 
+# --- Summaries ----------------------------------------------------------------
+summaries_dir <- here(out_dir, "summaries")
+dir.create(summaries_dir, showWarnings = FALSE)
+
 # Standard styled + scrollable kable, with a pinned header row.
 # height: max box height before scrolling kicks in.
 scrolly_kable <- function(tbl, height = "500px", ...) {
@@ -178,6 +182,8 @@ summary_tbl <- data |>
   ) |>
   arrange(date, imaging_date, imaging_type, metric)
 
+write.csv(summary_tbl, here(summaries_dir, "pre_date_group_summary.csv"))
+
 scrolly_kable(summary_tbl, digits = 2)
 ```
 
@@ -197,6 +203,8 @@ summary_tbl <- data |>
     .groups = "drop"
   ) |>
   arrange(date, plate, imaging_date, imaging_type, metric)
+
+write.csv(summary_tbl, here(summaries_dir, "pre_plate_summary.csv"))
 
 scrolly_kable(summary_tbl, digits = 2)
 ```
@@ -405,6 +413,8 @@ plate_delta_summary <- delta_long |>
     )
   ) |>
   arrange(date, plate, metric, comparison)
+
+write.csv(plate_delta_summary, here(summaries_dir, "plate_delta_summary.csv"))
 
 scrolly_kable(plate_delta_summary, digits = 2)
 ```
