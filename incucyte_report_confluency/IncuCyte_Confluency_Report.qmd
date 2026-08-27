@@ -112,7 +112,7 @@ Settings that vary by study — edit these, then run the rest of the report unch
 # that position. This lets you pin specific stages (e.g. a known first/last)
 # while auto-including whatever else shows up.
 # e.g. c("Prefix", "...", "Preassay") or c("...") or c("Baseline", "...")
-stage_levels <- c("Prefix", "Postfix", "Preassay")
+stage_levels <- c("Prefix", "Postfix", "...", "Preassay")
 
 if ("..." %in% stage_levels) {
   dots_pos <- which(stage_levels == "...")[1]
