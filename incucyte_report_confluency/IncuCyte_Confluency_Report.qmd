@@ -82,7 +82,7 @@ data <- result$data |>
     date          = str_extract(file_path, "\\d{8}(?=_)"),
     plate         = str_extract(file_path, "Plate\\d+"),
     imaging_date  = str_extract(file_path, "(?<=_Imaged)\\d{2}[A-Z]{3}\\d{4}"),
-    imaging_type  = str_extract(file_path, "(?<=_)[A-Za-z]+(?=\\.txt$|/)")
+    imaging_type  = str_extract(file_path, "(?<=_)[^_]+(?=\\.txt$)")
   )
 
 well_digits <- max(nchar(as.character(data$column)))
