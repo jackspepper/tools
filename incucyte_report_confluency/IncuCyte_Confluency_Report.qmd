@@ -34,12 +34,16 @@ data_dir <- here("..")
 # --- parse_confluency.R -----------------------------------------------------
 # Caches a local copy on first run so the report doesn't re-fetch on every 
 # render; delete to force a re-download of the latest version.
-script_path <- here("R", "parse_confluency.R")
-script_url  <- "https://raw.githubusercontent.com/jackspepper/tools/main/incucyte_parse_confluency/parse_confluency.R"
-
 if (!file.exists(script_path)) {
   dir.create(here("R"), showWarnings = FALSE)
-  download.file(script_url, script_path, mode = "wb")
+
+  if (requireNamespace("toolfetch", quietly = TRUE)) {
+  toolfetch::tools_fetch(folder = "incucyte_parse_confluency", subfolder = "R", install = "auto")
+  } else {
+    script_path <- here("R", "parse_confluency.R")
+    script_url  <- "https://raw.githubusercontent.com/jackspepper/tools/main/incucyte_parse_confluency/parse_confluency.R"
+    download.file(script_url, script_path, mode = "wb")
+  }
 }
 source(script_path, echo = FALSE)
 
