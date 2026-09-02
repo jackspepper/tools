@@ -1,0 +1,27 @@
+Package: clariostarparser
+Title: Parse BMG CLARIOstar Plate Reader Excel Exports
+Version: 0.1.0
+Authors@R: person("Jack", "Pepper", email = "jack.pepper@thekids.org.au", role = c("aut", "cre"))
+Description: Parses Excel exports from BMG CLARIOstar plate readers into tidy
+    long-format data frames. Supports both the "Table All Data points" export
+    (already tidy, one row per well) and the "Microplate End point" export
+    (stacked per-measure plate matrices), returning either or both alongside
+    parsed run metadata (User, Test ID, Test Name, Date, Time, sample ID).
+    Part of the jackspepper/tools collection.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Depends: R (>= 4.1.0)
+Imports:
+    readxl,
+    dplyr,
+    tidyr,
+    stringr,
+    rlang
+Suggests:
+    testthat (>= 3.0.0),
+    writexl
+Config/testthat/edition: 3
+URL: https://github.com/jackspepper/tools
+BugReports: https://github.com/jackspepper/tools/issues
+Config/roxygen2/version: 8.1.0
