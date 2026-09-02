@@ -68,6 +68,14 @@ parse_matrix_sheet <- function(data_all, filename) {
     block <- data_all[data_start:data_end, c(1, numeric_cols)]
     names(block) <- c("plate_row", as.character(col_headers[numeric_cols]))
 
+    # Well-value columns can come back as a mix of character and numeric
+    # types across columns within the same block (readxl/openxlsx cell
+    # typing isn't always consistent), which pivot_longer refuses to
+    # combine. Coerce to character up front and parse to numeric after
+    # pivoting instead.
+    block <- block %>%
+      dplyr::mutate(dplyr::across(-"plate_row", as.character))
+
     block_long <- block %>%
       tidyr::pivot_longer(
         cols = -"plate_row",
