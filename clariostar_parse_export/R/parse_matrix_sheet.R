@@ -20,12 +20,25 @@ parse_matrix_sheet <- function(data_all, filename) {
 
   col1 <- as.character(data_all[[2]])  # titles live in column 2 in this export
 
-  # Title rows look like "1. Raw Data  (590)" - i.e. start with a digit + "."
-  title_idx <- which(grepl("^[0-9]+\\.\\s", col1))
+  # A title row is any non-blank text row in column 2 immediately followed
+  # by a numeric column-header row (1, 2, 3, ...) in the row below. When
+  # multiple measures are exported, titles are numbered ("1. Raw Data
+  # (590)"); when only one measure is exported, ClarioSTAR omits the
+  # numbering ("Raw Data  (590)"), so we detect by structure rather than
+  # by requiring a "N. " prefix.
+  is_candidate_title <- !is.na(col1) & trimws(col1) != "" &
+    is.na(suppressWarnings(as.numeric(col1)))
+  next_row_numeric <- vapply(seq_along(col1), function(i) {
+    if (i >= nrow(data_all)) return(FALSE)
+    next_vals <- as.character(unlist(data_all[i + 1, ]))
+    any(!is.na(suppressWarnings(as.numeric(next_vals))))
+  }, logical(1))
+
+  title_idx <- which(is_candidate_title & next_row_numeric)
 
   if (length(title_idx) == 0) {
     stop(sprintf(
-      "No measure blocks (e.g. '1. Raw Data') found in 'Microplate End point'. Re-check or re-export and try again.
+      "No measure blocks (e.g. 'Raw Data' or '1. Raw Data') found in 'Microplate End point'. Re-check or re-export and try again.
       Errored File: %s", filename
     ))
   }
