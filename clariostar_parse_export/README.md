@@ -4,6 +4,8 @@ Parses Excel exports from BMG CLARIOstar plate readers into a tidy long-format
 data frame, plus parsed run metadata. Part of the
 [jackspepper/tools](https://github.com/jackspepper/tools) collection.
 
+Note: This package is untested for longitudinal data, and was designed for reading single-acquisition crystal violet stain measure. No guarantee is made this can read other formats for export.
+
 ## Installation
 
 ```r
