@@ -69,6 +69,53 @@ parse_protocol3 <- function(file, sheet = 1, name_components = NULL,
   )
 }
 
+#' Parse ProtoCOL 3 Inhibition Zone Plate Report
+#'
+#' Reads a ProtoCOL 3 inhibition zone plate report (.ods) and splits it into
+#' one entry per imaged plate, mirroring [parse_protocol3_abx()]. Each entry
+#' contains `metadata` (Plate Name, User, Created, Comments / Notes, and
+#' optionally Parser Version) and `data` (Sector, Zone Name,
+#' Zone Diameter (mm), Flags, Zone Area (mm^2)).
+#'
+#' @inheritParams parse_protocol3
+#'
+#' @return If `exclude` is `NULL`, a named list, one element per plate (named
+#'   after "Plate Name"), each a list with `$metadata` and `$data` data
+#'   frames. If `exclude` is supplied, a list with `$included` and
+#'   `$excluded`, each in that same per-plate shape.
+#'
+#' @examples
+#' file <- system.file(
+#'   "extdata",
+#'   "ExampleInhibition.ods",
+#'   package = "protocol3Parser"
+#' )
+#'
+#' plates <- parse_protocol3_inhibition(file)
+#' plates[["11"]]$data
+#'
+#' @export
+parse_protocol3_inhibition <- function(file, sheet = 1, name_components = NULL,
+                                        split_flags = TRUE, exclude = NULL,
+                                        exclude_column = "Plate Name",
+                                        include_version = TRUE) {
+
+  .parse_protocol3_report(
+    file = file,
+    sheet = sheet,
+    name_components = name_components,
+    data_cols = c(
+      "Sector", "Zone Name", "Zone Diameter (mm)",
+      "Flags", "Zone Area (mm^2)"
+    ),
+    num_cols = c("Zone Diameter (mm)", "Zone Area (mm^2)"),
+    split_flags = split_flags,
+    exclude = exclude,
+    exclude_column = exclude_column,
+    include_version = include_version
+  )
+}
+
 #' Parse ProtoCOL 3 Antibiotic Resistance (Zone) Report
 #'
 #' Reads a ProtoCOL 3 antibiotic zone plate report (.ods) and splits it into

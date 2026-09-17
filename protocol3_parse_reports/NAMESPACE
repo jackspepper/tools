@@ -2,5 +2,6 @@
 
 export(parse_protocol3)
 export(parse_protocol3_abx)
+export(parse_protocol3_inhibition)
 export(split_flags)
 export(tidy_protocol3)
