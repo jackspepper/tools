@@ -48,8 +48,29 @@ jobs:
             echo ""
           } > tag_report.md
 
-          for dir in */ ; do
-            TOOL="${dir%/}"
+          # Build the list of top-level directories to check.
+          # - force_tag_all: check every top-level dir (manual full sweep)
+          # - normal push: only check dirs touched by this push (three-dot diff
+          #   handles PR merge commits safely by diffing against the merge-base)
+          if [ "$FORCE_TAG_ALL" = "true" ]; then
+            echo "force_tag_all is true: scanning all top-level directories"
+            CANDIDATE_DIRS=$(find . -maxdepth 1 -mindepth 1 -type d -printf '%f\n' | sort -u)
+          elif [ -n "$BEFORE_SHA" ]; then
+            echo "Scoping to directories changed between $BEFORE_SHA...$HEAD_SHA"
+            CANDIDATE_DIRS=$(git diff --name-only "$BEFORE_SHA"..."$HEAD_SHA" | cut -d/ -f1 | sort -u)
+          else
+            echo "No BEFORE_SHA available and force_tag_all is false: nothing to scope, exiting."
+            CANDIDATE_DIRS=""
+          fi
+
+          if [ -z "$CANDIDATE_DIRS" ]; then
+            echo "No candidate directories found." >> tag_report.md
+          fi
+
+          for TOOL in $CANDIDATE_DIRS; do
+
+            # Skip anything that isn't actually a directory (e.g. a changed root-level file)
+            [ -d "$TOOL" ] || continue
 
             case "$TOOL" in
               .github|docs|renv)
