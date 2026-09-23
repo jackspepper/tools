@@ -41,6 +41,26 @@ If both sheets are present, `Table All Data points` is used as the primary
 `data` output, with the matrix sheet available separately in `matrix_data`
 as a cross-check.
 
+## CSV exports
+
+CLARIOstar can also export to a single `.csv` file, which combines the
+stacked measure matrices and the tidy per-well table (plus instrument
+settings and a run log) into one ragged, comma-delimited file. Use the
+separate `read_clariostar_csv()` function for these:
+
+```r
+result <- read_clariostar_csv("ClarioSTAR_Export.csv")
+
+result$metadata     # run metadata: User, Path, Test run no., Test name, Date, Time, ID1, ...
+result$data          # primary tidy long-format data frame (from the "Well,Content,..." table)
+result$matrix_data   # long-format data from the stacked measure matrices
+result$format_used   # "tidy" or "matrix" - which section became result$data
+result$parse_info    # source file, package version, parse timestamp
+```
+
+The return shape matches `read_clariostar()`, except `parse_info` has no
+`sheets_found` (CSV exports have no sheets).
+
 ## Development
 
 ```r

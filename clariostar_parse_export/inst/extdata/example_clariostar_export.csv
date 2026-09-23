@@ -1,0 +1,201 @@
+User: USER,Path: C:\Program Files (x86)\BMG\CLARIOstar\User\Data,Test run no.: 29,,,,,,,,,,
+Test name: Crystal Violet 590nm,Date: 14/07/2026,Time: 11:51:50 AM,,,,,,,,,,
+,,,,,,,,,,,,
+ID1: ExampleData,,,,,,,,,,,,
+Absorbance,,,,,,,,,,,,
+,,,,,,,,,,,,
+1. Layout,,,,,,,,,,,,
+,,,,,,,,,,,,
+,1,2,3,4,5,6,7,8,9,10,11,12
+A,X21,X21,X21,X21,X21,X21,X21,X21,X21,X21,X21,X21
+B,X21,X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X21
+C,X21,X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X21
+D,X21,X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X21
+E,X21,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21
+F,X21,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21
+G,X21,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21
+H,X21,X21,X21,X21,X21,X21,X21,X21,X21,X21,X21,X21
+,,,,,,,,,,,,
+2. Raw Data (590),,,,,,,,,,,,
+,,,,,,,,,,,,
+,1,2,3,4,5,6,7,8,9,10,11,12
+A,overflow,overflow,1.557,1.227,1.514,1.427,1.42,1.397,1.45,1.394,1.34,1.475
+B,1.656,0.711,0.732,0.872,0.924,0.772,0.712,0.741,0.882,0.706,0.676,1.48
+C,1.345,0.725,0.805,1.032,0.881,0.763,0.655,0.855,0.766,0.685,0.667,1.351
+D,1.498,0.877,0.708,1.049,0.876,0.883,0.815,0.791,0.853,0.784,0.736,1.309
+E,1.601,0.818,0.91,1.136,0.908,1.028,0.765,1.075,1.214,0.92,1.046,1.405
+F,1.682,0.794,0.853,1.188,1.132,1.215,0.891,0.984,1.028,1.352,0.733,1.42
+G,1.639,0.916,0.848,1.35,1.356,1.417,1.242,1.255,1.184,1.073,0.804,1.672
+H,2.091,1.274,1.431,1.539,2.011,1.825,1.555,1.738,1.563,1.576,1.416,1.831
+,,,,,,,,,,,,
+3. Average over replicates based on Raw Data (590),,,,,,,,,,,,
+,,,,,,,,,,,,
+,1,2,3,4,5,6,7,8,9,10,11,12
+A,1.533,1.533,1.533,1.533,1.533,1.533,1.533,1.533,1.533,1.533,1.533,1.533
+B,1.533,0.771,0.748,0.984,0.893,0.806,0.727,0.796,0.834,0.725,0.693,1.533
+C,1.533,0.771,0.748,0.984,0.893,0.806,0.727,0.796,0.834,0.725,0.693,1.533
+D,1.533,0.771,0.748,0.984,0.893,0.806,0.727,0.796,0.834,0.725,0.693,1.533
+E,1.533,0.843,0.871,1.225,1.132,1.22,0.966,1.104,1.142,1.115,0.861,1.533
+F,1.533,0.843,0.871,1.225,1.132,1.22,0.966,1.104,1.142,1.115,0.861,1.533
+G,1.533,0.843,0.871,1.225,1.132,1.22,0.966,1.104,1.142,1.115,0.861,1.533
+H,1.533,1.533,1.533,1.533,1.533,1.533,1.533,1.533,1.533,1.533,1.533,1.533
+,,,,,,,,,,,,
+4. Standard deviation over replicates based on Raw Data (590),,,,,,,,,,,,
+,,,,,,,,,,,,
+,1,2,3,4,5,6,7,8,9,10,11,12
+A,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2
+B,0.2,0.09199,0.050556,0.097566,0.026436,0.066771,0.080681,0.05694,0.060617,0.052405,0.037797,0.2
+C,0.2,0.09199,0.050556,0.097566,0.026436,0.066771,0.080681,0.05694,0.060617,0.052405,0.037797,0.2
+D,0.2,0.09199,0.050556,0.097566,0.026436,0.066771,0.080681,0.05694,0.060617,0.052405,0.037797,0.2
+E,0.2,0.06467,0.034656,0.1,0.2,0.2,0.2,0.1,0.099902,0.2,0.2,0.2
+F,0.2,0.06467,0.034656,0.1,0.2,0.2,0.2,0.1,0.099902,0.2,0.2,0.2
+G,0.2,0.06467,0.034656,0.1,0.2,0.2,0.2,0.1,0.099902,0.2,0.2,0.2
+H,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2
+,,,,,,,,,,,,
+5. %CV over replicates based on Raw Data (590),,,,,,,,,,,,
+,,,,,,,,,,,,
+,1,2,3,4,5,6,7,8,9,10,11,12
+A,12.8,12.8,12.8,12.8,12.8,12.8,12.8,12.8,12.8,12.8,12.8,12.8
+B,12.8,11.9,6.8,9.9,3,8.3,11.1,7.2,7.3,7.2,5.5,12.8
+C,12.8,11.9,6.8,9.9,3,8.3,11.1,7.2,7.3,7.2,5.5,12.8
+D,12.8,11.9,6.8,9.9,3,8.3,11.1,7.2,7.3,7.2,5.5,12.8
+E,12.8,7.7,4,9.1,19.8,15.9,25.6,12.5,8.8,19.7,19,12.8
+F,12.8,7.7,4,9.1,19.8,15.9,25.6,12.5,8.8,19.7,19,12.8
+G,12.8,7.7,4,9.1,19.8,15.9,25.6,12.5,8.8,19.7,19,12.8
+H,12.8,12.8,12.8,12.8,12.8,12.8,12.8,12.8,12.8,12.8,12.8,12.8
+,,,,,,,,,,,,
+ ,,,,,,,,,,,,
+Well,Content,Raw Data (590),Average over replicates based on Raw Data (590),Standard deviation over replicates based on Raw Data (590),%CV over replicates based on Raw Data (590),,,,,,,
+A01,Sample X21,overflow,1.533,0.2,12.8,,,,,,,
+A02,Sample X21,overflow,1.533,0.2,12.8,,,,,,,
+A03,Sample X21,1.557,1.533,0.2,12.8,,,,,,,
+A04,Sample X21,1.227,1.533,0.2,12.8,,,,,,,
+A05,Sample X21,1.514,1.533,0.2,12.8,,,,,,,
+A06,Sample X21,1.427,1.533,0.2,12.8,,,,,,,
+A07,Sample X21,1.42,1.533,0.2,12.8,,,,,,,
+A08,Sample X21,1.397,1.533,0.2,12.8,,,,,,,
+A09,Sample X21,1.45,1.533,0.2,12.8,,,,,,,
+A10,Sample X21,1.394,1.533,0.2,12.8,,,,,,,
+A11,Sample X21,1.34,1.533,0.2,12.8,,,,,,,
+A12,Sample X21,1.475,1.533,0.2,12.8,,,,,,,
+B01,Sample X21,1.656,1.533,0.2,12.8,,,,,,,
+B02,Sample X1,0.711,0.771,9.20E-02,11.9,,,,,,,
+B03,Sample X2,0.732,0.748,5.06E-02,6.8,,,,,,,
+B04,Sample X3,0.872,0.984,9.76E-02,9.9,,,,,,,
+B05,Sample X4,0.924,0.893,2.64E-02,3,,,,,,,
+B06,Sample X5,0.772,0.806,6.68E-02,8.3,,,,,,,
+B07,Sample X6,0.712,0.727,8.07E-02,11.1,,,,,,,
+B08,Sample X7,0.741,0.796,5.69E-02,7.2,,,,,,,
+B09,Sample X8,0.882,0.834,6.06E-02,7.3,,,,,,,
+B10,Sample X9,0.706,0.725,5.24E-02,7.2,,,,,,,
+B11,Sample X10,0.676,0.693,3.78E-02,5.5,,,,,,,
+B12,Sample X21,1.48,1.533,0.2,12.8,,,,,,,
+C01,Sample X21,1.345,1.533,0.2,12.8,,,,,,,
+C02,Sample X1,0.725,0.771,9.20E-02,11.9,,,,,,,
+C03,Sample X2,0.805,0.748,5.06E-02,6.8,,,,,,,
+C04,Sample X3,1.032,0.984,9.76E-02,9.9,,,,,,,
+C05,Sample X4,0.881,0.893,2.64E-02,3,,,,,,,
+C06,Sample X5,0.763,0.806,6.68E-02,8.3,,,,,,,
+C07,Sample X6,0.655,0.727,8.07E-02,11.1,,,,,,,
+C08,Sample X7,0.855,0.796,5.69E-02,7.2,,,,,,,
+C09,Sample X8,0.766,0.834,6.06E-02,7.3,,,,,,,
+C10,Sample X9,0.685,0.725,5.24E-02,7.2,,,,,,,
+C11,Sample X10,0.667,0.693,3.78E-02,5.5,,,,,,,
+C12,Sample X21,1.351,1.533,0.2,12.8,,,,,,,
+D01,Sample X21,1.498,1.533,0.2,12.8,,,,,,,
+D02,Sample X1,0.877,0.771,9.20E-02,11.9,,,,,,,
+D03,Sample X2,0.708,0.748,5.06E-02,6.8,,,,,,,
+D04,Sample X3,1.049,0.984,9.76E-02,9.9,,,,,,,
+D05,Sample X4,0.876,0.893,2.64E-02,3,,,,,,,
+D06,Sample X5,0.883,0.806,6.68E-02,8.3,,,,,,,
+D07,Sample X6,0.815,0.727,8.07E-02,11.1,,,,,,,
+D08,Sample X7,0.791,0.796,5.69E-02,7.2,,,,,,,
+D09,Sample X8,0.853,0.834,6.06E-02,7.3,,,,,,,
+D10,Sample X9,0.784,0.725,5.24E-02,7.2,,,,,,,
+D11,Sample X10,0.736,0.693,3.78E-02,5.5,,,,,,,
+D12,Sample X21,1.309,1.533,0.2,12.8,,,,,,,
+E01,Sample X21,1.601,1.533,0.2,12.8,,,,,,,
+E02,Sample X11,0.818,0.843,6.47E-02,7.7,,,,,,,
+E03,Sample X12,0.91,0.871,3.47E-02,4,,,,,,,
+E04,Sample X13,1.136,1.225,0.1,9.1,,,,,,,
+E05,Sample X14,0.908,1.132,0.2,19.8,,,,,,,
+E06,Sample X15,1.028,1.22,0.2,15.9,,,,,,,
+E07,Sample X16,0.765,0.966,0.2,25.6,,,,,,,
+E08,Sample X17,1.075,1.104,0.1,12.5,,,,,,,
+E09,Sample X18,1.214,1.142,9.99E-02,8.8,,,,,,,
+E10,Sample X19,0.92,1.115,0.2,19.7,,,,,,,
+E11,Sample X20,1.046,0.861,0.2,19,,,,,,,
+E12,Sample X21,1.405,1.533,0.2,12.8,,,,,,,
+F01,Sample X21,1.682,1.533,0.2,12.8,,,,,,,
+F02,Sample X11,0.794,0.843,6.47E-02,7.7,,,,,,,
+F03,Sample X12,0.853,0.871,3.47E-02,4,,,,,,,
+F04,Sample X13,1.188,1.225,0.1,9.1,,,,,,,
+F05,Sample X14,1.132,1.132,0.2,19.8,,,,,,,
+F06,Sample X15,1.215,1.22,0.2,15.9,,,,,,,
+F07,Sample X16,0.891,0.966,0.2,25.6,,,,,,,
+F08,Sample X17,0.984,1.104,0.1,12.5,,,,,,,
+F09,Sample X18,1.028,1.142,9.99E-02,8.8,,,,,,,
+F10,Sample X19,1.352,1.115,0.2,19.7,,,,,,,
+F11,Sample X20,0.733,0.861,0.2,19,,,,,,,
+F12,Sample X21,1.42,1.533,0.2,12.8,,,,,,,
+G01,Sample X21,1.639,1.533,0.2,12.8,,,,,,,
+G02,Sample X11,0.916,0.843,6.47E-02,7.7,,,,,,,
+G03,Sample X12,0.848,0.871,3.47E-02,4,,,,,,,
+G04,Sample X13,1.35,1.225,0.1,9.1,,,,,,,
+G05,Sample X14,1.356,1.132,0.2,19.8,,,,,,,
+G06,Sample X15,1.417,1.22,0.2,15.9,,,,,,,
+G07,Sample X16,1.242,0.966,0.2,25.6,,,,,,,
+G08,Sample X17,1.255,1.104,0.1,12.5,,,,,,,
+G09,Sample X18,1.184,1.142,9.99E-02,8.8,,,,,,,
+G10,Sample X19,1.073,1.115,0.2,19.7,,,,,,,
+G11,Sample X20,0.804,0.861,0.2,19,,,,,,,
+G12,Sample X21,1.672,1.533,0.2,12.8,,,,,,,
+H01,Sample X21,2.091,1.533,0.2,12.8,,,,,,,
+H02,Sample X21,1.274,1.533,0.2,12.8,,,,,,,
+H03,Sample X21,1.431,1.533,0.2,12.8,,,,,,,
+H04,Sample X21,1.539,1.533,0.2,12.8,,,,,,,
+H05,Sample X21,2.011,1.533,0.2,12.8,,,,,,,
+H06,Sample X21,1.825,1.533,0.2,12.8,,,,,,,
+H07,Sample X21,1.555,1.533,0.2,12.8,,,,,,,
+H08,Sample X21,1.738,1.533,0.2,12.8,,,,,,,
+H09,Sample X21,1.563,1.533,0.2,12.8,,,,,,,
+H10,Sample X21,1.576,1.533,0.2,12.8,,,,,,,
+H11,Sample X21,1.416,1.533,0.2,12.8,,,,,,,
+H12,Sample X21,1.831,1.533,0.2,12.8,,,,,,,
+ ,,,,,,,,,,,,
+ ,,,,,,,,,,,,
+,,,,,,,,,,,,
+Basic settings,,,,,,,,,,,,
+Measurement type:,Absorbance,,,,,,,,,,,
+Microplate name:,GREINER 96 F-BOTTOM,,,,,,,,,,,
+,,,,,,,,,,,,
+Endpoint settings,,,,,,,,,,,,
+No. of flashes per well:,22,,,,,,,,,,,
+,,,,,,,,,,,,
+Optic settings,,,,,,,,,,,,
+Excitation:,590,,,,,,,,,,,
+,,,,,,,,,,,,
+General settings,,,,,,,,,,,,
+Top optic used,,,,,,,,,,,,
+Spoon type:,-,,,,,,,,,,,
+Injection needle holder type:,-,,,,,,,,,,,
+Settling time [s]:,0.5,,,,,,,,,,,
+Reading direction:,bidirectional, horizontal left to right, top to bottom,,,,,,,,,
+Target temperature [°C]:,set off,,,,,,,,,,,
+Target concentration O2 [%]:,set off,,,,,,,,,,,
+Target concentration CO2 [%]:,,,,,,,,,,,,
+,,,,,,,,,,,,
+Comment,,,,,,,,,,,,
+,Date=Monday, 7 September 2026 - 2:43:13 PM / Time zone: W. Australia Standard Time (UTC+8), Windows user 'ClarioStarUser', BMG user 'USER': Data record created by performing test protocol 'Crystal Violet 590nm' (started: Monday, 7 September 2026 - 2:41:43 PM, finished: Monday, 7 September 2026 - 2:43:13 PM) using reader 430-4801.,,,,,
+Monday, 7 September 2026 - 2:43:29 PM / Time zone: W. Australia Standard Time (UTC+8), Windows user 'ClarioStarUser', BMG user 'USER': No settings available: Assigned method template.,,,,,,,,,
+Monday, 7 September 2026 - 2:49:57 PM / Time zone: W. Australia Standard Time (UTC+8), Windows user 'ClarioStarUser', BMG user 'USER': Test run exported from MARS version 5.02.103.54 / test run no. (internal ID): 606,,,,,,,,,
+Monday, 21 September 2026 - 12:50:26 PM / Time zone: W. Australia Standard Time (UTC+8), Windows user 'JPepper', BMG user 'USER': Settings have been changed.,,,,,,,,,
+Monday, 21 September 2026 - 12:50:27 PM / Time zone: W. Australia Standard Time (UTC+8), Windows user 'JPepper', BMG user 'USER': User assigned template Biofilm - SeraDisrupt,,,,,,,,,
+Monday, 21 September 2026 - 12:50:49 PM / Time zone: W. Australia Standard Time (UTC+8), Windows user 'JPepper', BMG user 'USER': Settings have been changed.,,,,,,,,,
+Monday, 21 September 2026 - 12:50:56 PM / Time zone: W. Australia Standard Time (UTC+8), Windows user 'JPepper', BMG user 'USER': User assigned template Biofilm - SeraDisrupt,,,,,,,,,
+Monday, 21 September 2026 - 12:52:40 PM / Time zone: W. Australia Standard Time (UTC+8), Windows user 'JPepper', BMG user 'USER': Layout content changed!,,,,,,,,,
+Monday, 21 September 2026 - 12:52:41 PM / Time zone: W. Australia Standard Time (UTC+8), Windows user 'JPepper', BMG user 'USER': Settings have been changed.,,,,,,,,,
+Monday, 21 September 2026 - 12:52:45 PM / Time zone: W. Australia Standard Time (UTC+8), Windows user 'JPepper', BMG user 'USER': Layout content changed!,,,,,,,,,
+Monday, 21 September 2026 - 12:52:46 PM / Time zone: W. Australia Standard Time (UTC+8), Windows user 'JPepper', BMG user 'USER': User assigned template Biofilm - SeraDisrupt,,,,,,,,,
+Monday, 21 September 2026 - 12:53:42 PM / Time zone: W. Australia Standard Time (UTC+8), Windows user 'JPepper', BMG user 'USER': Pathlength Correction changed!,,,,,,,,,
+ - Crosstalk Correction changed!,,,,,,,,,,,,

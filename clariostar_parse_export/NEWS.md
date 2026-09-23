@@ -1,3 +1,10 @@
+# clariostarparser 0.2.0
+
+* Adds `read_clariostar_csv()` to parse CLARIOstar CSV exports (a separate
+  function from `read_clariostar()`, since the CSV format packages both the
+  stacked measure matrices and the tidy per-well table into a single ragged,
+  comma-delimited file rather than separate sheets).
+
 # clariostarparser 0.1.0
 
 * Initial release.
